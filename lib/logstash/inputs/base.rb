@@ -3,13 +3,15 @@ require "logstash/event"
 require "logstash/plugin"
 require "logstash/logging"
 require "logstash/config/mixin"
+require "logstash/codecs/base"
 
 # This is the base class for logstash inputs.
 class LogStash::Inputs::Base < LogStash::Plugin
   include LogStash::Config::Mixin
   config_name "input"
 
-  # Label this input with a type.
+  # Add a 'type' field to all events handled by this input.
+  #
   # Types are used mainly for filter activation.
   #
   # If you create an input with type "foobar", then only filters
@@ -23,13 +25,16 @@ class LogStash::Inputs::Base < LogStash::Plugin
   # a new input will not override the existing type. A type set at 
   # the shipper stays with that event for its life even
   # when sent to another LogStash server.
-  config :type, :validate => :string, :required => true
+  config :type, :validate => :string
 
   # Set this to true to enable debugging on an input.
   config :debug, :validate => :boolean, :default => false
 
   # The format of input data (plain, json, json_event)
-  config :format, :validate => ["plain", "json", "json_event", "msgpack_event"]
+  config :format, :validate => ["plain", "json", "json_event", "msgpack_event"], :deprecated => true
+
+  # The codec used for input data
+  config :codec, :validate => :string, :default => 'plain'
 
   # The character encoding used in this input. Examples include "UTF-8"
   # and "cp1252"
@@ -77,6 +82,12 @@ class LogStash::Inputs::Base < LogStash::Plugin
   def tag(newtag)
     @tags << newtag
   end # def tag
+
+  protected
+  def enable_codecs
+    @codec = LogStash::Codecs.for(@codec).new
+    @codec.charset = @charset
+  end
 
   protected
   def to_event(raw, source)
@@ -160,12 +171,15 @@ class LogStash::Inputs::Base < LogStash::Plugin
       raise "unknown event format #{@format}, this should never happen"
     end
 
-    event.type ||= @type
+    event["type"] = @type if @type
 
     @add_field.each do |field, value|
-       event[field] ||= []
-       event[field] = [event[field]] if !event[field].is_a?(Array)
-       event[field] << event.sprintf(value)
+      if event.include?(field)
+        event[field] = [event[field]] if !event[field].is_a?(Array)
+        event[field] << value
+      else
+        event[field] = value
+      end
     end
 
     @logger.debug? and @logger.debug("Received new event", :source => source, :event => event)

@@ -1,8 +1,4 @@
-require "logstash/config/file"
-require "logstash/plugin"
-require "logstash/pipeline"
 require "clamp" # gem 'clamp'
-require "cabin" # gem 'cabin'
 
 class LogStash::Agent2 < Clamp::Command
   class ConfigurationError < StandardError; end
@@ -27,29 +23,22 @@ class LogStash::Agent2 < Clamp::Command
     I18n.t("logstash.agent.flag.log"),
     :attribute_name => :log_file
 
-  verbosity = 0
+  # Old support for the '-v' flag'
   option "-v", :flag, 
     I18n.t("logstash.agent.flag.verbosity"),
-    :default => :warn, :attribute_name => :verbosity do
-    verbosity += 1
+    :attribute_name => :verbosity, :multivalued => true
 
-    if verbosity == 1
-      next :info
-    else
-      next :debug
-    end
-  end # -v
+  option "--quiet", :flag, I18n.t("logstash.agent.flag.quiet")
+  option "--verbose", :flag, I18n.t("logstash.agent.flag.verbose")
+  option "--debug", :flag, I18n.t("logstash.agent.flag.debug")
 
   option ["-V", "--version"], :flag,
     I18n.t("logstash.agent.flag.version")
 
-  plugin_paths = []
   option ["-p", "--pluginpath"] , "PATH",
     I18n.t("logstash.agent.flag.pluginpath"),
-    :attribute_name => :plugin_paths do |value|
-    plugin_paths << value unless plugin_paths.include?(value)
-    next plugin_paths
-  end # -p / --pluginpath
+    :multivalued => true,
+    :attribute_name => :plugin_paths
 
   # Emit a warning message.
   def warn(message)
@@ -65,6 +54,9 @@ class LogStash::Agent2 < Clamp::Command
   # Run the agent. This method is invoked after clamp parses the
   # flags given to this program.
   def execute
+    require "logstash/pipeline"
+    require "cabin" # gem 'cabin'
+    require "logstash/plugin"
     @logger = Cabin::Channel.get(LogStash)
 
     if version?
@@ -73,6 +65,16 @@ class LogStash::Agent2 < Clamp::Command
     end
 
     configure
+
+    # You must specify a config_string or config_path
+    if config_string.nil? && config_path.nil?
+      puts help
+      fail(I18n.t("logstash.agent.missing-configuration"))
+    end
+
+    if @config_path
+      @config_string = load_config(@config_path)
+    end
 
     begin
       pipeline = LogStash::Pipeline.new(@config_string)
@@ -93,10 +95,9 @@ class LogStash::Agent2 < Clamp::Command
     puts I18n.t("logstash.agent.error", :error => e)
     return 1
   rescue => e
-    puts I18n.t("unexpected-exception", :error => e)
+    puts I18n.t("oops", :error => e)
     puts e.backtrace if @logger.debug?
     return 1
-    #puts e.backtrace
   ensure
     Stud::untrap("INT", trap_id) unless trap_id.nil?
   end # def execute
@@ -160,7 +161,25 @@ class LogStash::Agent2 < Clamp::Command
   # Point logging at a specific path.
   def configure_logging(path)
     # Set with the -v (or -vv...) flag
-    @logger.level = verbosity?
+    if verbosity? 
+      # this is an array with length of how many times the flag is given
+      if verbosity?.length == 1
+        @logger.level = :info
+      else
+        @logger.level = :debug
+      end
+    end
+
+    if quiet?
+      @logger.level = :error
+    elsif verbose?
+      @logger.level = :info
+    elsif debug?
+      @logger.level = :debug
+    else
+      @logger.level = :warn
+    end
+
     if !log_file.nil?
       # TODO(sissel): Implement file output/rotation in Cabin.
       # TODO(sissel): Catch exceptions, report sane errors.
@@ -207,4 +226,20 @@ class LogStash::Agent2 < Clamp::Command
       $LOAD_PATH.unshift(path)
     end
   end # def configure_plugin_path
+
+  def load_config(path)
+    path = File.join(path, "*") if File.directory?(path)
+
+    if Dir.glob(path).length == 0
+      fail(I18n.t("logstash.agent.configuration.file-not-found", :path => path))
+    end
+
+    config = ""
+    Dir.glob(path).sort.each do |file|
+      next unless File.file?(file)
+      @logger.debug("Reading config file", :file => file)
+      config << File.read(file) + "\n"
+    end
+    return config
+  end # def load_config
 end # class LogStash::Agent2

@@ -1,9 +1,16 @@
 require "json"
 require "time"
 require "date"
-require "logstash/time_addon"
 require "logstash/namespace"
 require "uri"
+
+# Use a custom serialization for jsonifying Time objects.
+# TODO(sissel): Put this in a separate file.
+class Time
+  def to_json(*args)
+    return iso8601(3).to_json(*args)
+  end
+end
 
 # the logstash event object.
 #
@@ -35,7 +42,7 @@ module LogStash::EventV1
     @cancelled = false
 
     @data = data
-    @data["@timestamp"] = ::Time.now if !@data.include?("@timestamp")
+    @data["@timestamp"] = ::Time.now.utc if !@data.include?("@timestamp")
     @data["@version"] = "1" if !@data.include?("@version")
   end # def initialize
 
@@ -188,7 +195,12 @@ module LogStash::EventV1
         t = @data["@timestamp"]
         formatter = org.joda.time.format.DateTimeFormat.forPattern(key[1 .. -1])\
           .withZone(org.joda.time.DateTimeZone::UTC)
-        next org.joda.time.Instant.new(t.tv_sec * 1000 + t.tv_usec / 1000).toDateTime.toString(formatter)
+        #next org.joda.time.Instant.new(t.tv_sec * 1000 + t.tv_usec / 1000).toDateTime.toString(formatter)
+        # Invoke a specific Instant constructor to avoid this warning in JRuby
+        #  > ambiguous Java methods found, using org.joda.time.Instant(long)
+        org.joda.time.Instant.java_class.constructor(Java::long).new_instance(
+          t.tv_sec * 1000 + t.tv_usec / 1000
+        ).to_java.toDateTime.toString(formatter)
       else
         value = self[key]
         case value
