@@ -1,13 +1,6 @@
-require "logstash/util/fieldeval"
+require "logstash/util/fieldreference"
 
-describe LogStash::Util::HashEval do
-  it "xxx" do
-    str = "[hello][world]"
-    #puts subject.compile(str)
-  end
-end
-
-describe LogStash::Util::HashEval, :if => true do
+describe LogStash::Util::FieldReference, :if => true do
   it "should permit simple key names" do
     str = "hello"
     m = eval(subject.compile(str))
@@ -37,5 +30,14 @@ describe LogStash::Util::HashEval, :if => true do
 
     # Make sure the "world" key is removed.
     insist { data["hello"] } == { "bar" => "baz" }
+  end
+
+  it "should permit blocks #2" do
+    str = "simple"
+    code = subject.compile(str)
+    m = eval(subject.compile(str))
+    data = { "simple" => "things" }
+    m.call(data) { |obj, key| obj.delete(key) }
+    insist { data }.empty?
   end
 end
