@@ -10,6 +10,10 @@ class Time
   def to_json(*args)
     return iso8601(3).to_json(*args)
   end
+
+  def inspect
+    return to_json
+  end
 end
 
 # the logstash event object.
@@ -42,8 +46,15 @@ class LogStash::Event
     @cancelled = false
 
     @data = data
-    @data["@timestamp"] = ::Time.now.utc if !@data.include?("@timestamp")
-    @data["@version"] = "1" if !@data.include?("@version")
+    if data.include?("@timestamp")
+      t = data["@timestamp"]
+      if t.is_a?(String)
+        data["@timestamp"] = Time.parse(t).gmtime
+      end
+    else
+      data["@timestamp"] = ::Time.now.utc 
+    end
+    data["@version"] = "1" if !@data.include?("@version")
   end # def initialize
 
   # Add class methods on inclusion.
@@ -192,9 +203,9 @@ class LogStash::Event
   # any format values, delimited by %{foo} where 'foo' is a field or
   # metadata member.
   #
-  # For example, if the event has @type == "foo" and @source == "bar"
+  # For example, if the event has type == "foo" and source == "bar"
   # then this string:
-  #   "type is %{@type} and source is %{@source}"
+  #   "type is %{type} and source is %{source}"
   # will return
   #   "type is foo and source is bar"
   #
@@ -205,6 +216,7 @@ class LogStash::Event
   # is an array (or hash?) should be. Join by comma? Something else?
   public
   def sprintf(format)
+    format = format.to_s
     if format.index("%").nil?
       return format
     end

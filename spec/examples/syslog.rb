@@ -1,6 +1,6 @@
 require "test_utils"
 
-describe "parse syslog" do
+describe "parse syslog", :if => RUBY_ENGINE == "jruby" do
   extend LogStash::RSpec
 
   config <<-'CONFIG'
@@ -44,6 +44,5 @@ describe "parse syslog" do
     insist { subject.tags }.nil?
     insist { subject["syslog_pri"] } == "164"
     #insist { subject.timestamp } == "2012-10-26T15:19:25.000Z"
-    puts subject.to_hash
   end
 end

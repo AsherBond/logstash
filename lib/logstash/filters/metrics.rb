@@ -129,7 +129,7 @@ class LogStash::Filters::Metrics < LogStash::Filters::Base
     return unless filter?(event)
 
     # TODO(piavlo): This should probably be moved to base filter class.
-    if @ignore_older_than > 0 && Time.now - event.ruby_timestamp > @ignore_older_than
+    if @ignore_older_than > 0 && Time.now - event["@timestamp"] > @ignore_older_than
       @logger.debug("Skipping metriks for old event", :event => event)
       return
     end
@@ -148,7 +148,7 @@ class LogStash::Filters::Metrics < LogStash::Filters::Base
     return if @metric_meters.empty? && @metric_timers.empty?
 
     event = LogStash::Event.new
-    event.source_host = Socket.gethostname
+    event["message"] = Socket.gethostname
     @metric_meters.each do |name, metric|
       event["#{name}.count"] = metric.count
       event["#{name}.rate_1m"] = metric.one_minute_rate

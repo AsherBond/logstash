@@ -22,7 +22,11 @@ class LogStash::Pipeline
     # The config code is hard to represent as a log message...
     # So just print it.
     @logger.debug? && @logger.debug("Compiled pipeline code:\n#{code}")
-    eval(code)
+    begin
+      eval(code)
+    rescue => e
+      raise
+    end
 
     @input_to_filter = SizedQueue.new(20)
 
@@ -125,6 +129,7 @@ class LogStash::Pipeline
   end
 
   def start_filters
+    @filters.each(&:register)
     @filter_threads = @settings["filter-workers"].times.collect do
       Thread.new { filterworker }
     end
@@ -149,7 +154,8 @@ class LogStash::Pipeline
     rescue => e
       if @logger.debug?
         @logger.error(I18n.t("logstash.pipeline.worker-error-debug",
-                             :plugin => plugin.inspect, :error => e,
+                             :plugin => plugin.inspect, :error => e.to_s,
+                             :exception => e.class,
                              :stacktrace => e.backtrace.join("\n")))
       else
         @logger.error(I18n.t("logstash.pipeline.worker-error",
@@ -164,11 +170,14 @@ class LogStash::Pipeline
 
   def filterworker
     LogStash::Util::set_thread_name("|worker")
-    @filters.each(&:register)
     begin
       while true
         event = @input_to_filter.pop
-        break if event == LogStash::ShutdownSignal
+        if event == LogStash::ShutdownSignal
+          @input_to_filter.push(event)
+          break
+        end
+
 
         # TODO(sissel): we can avoid the extra array creation here
         # if we don't guarantee ordering of origin vs created events.
@@ -224,5 +233,13 @@ class LogStash::Pipeline
     args << {} if args.empty?
     klass = LogStash::Plugin.lookup(plugin_type, name)
     return klass.new(*args)
+  end
+
+  def filter(event, &block)
+    @filter_func.call(event, &block)
+  end
+
+  def output(event)
+    @output_func.call(event)
   end
 end # class Pipeline

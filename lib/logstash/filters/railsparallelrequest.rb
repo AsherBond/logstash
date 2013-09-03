@@ -10,7 +10,7 @@ require "set"
 class LogStash::Filters::Railsparallelrequest < LogStash::Filters::Base
 
   config_name "railsparallelrequest"
-  plugin_status "experimental"
+  milestone 1
 
   public
   def initialize(config = {})
@@ -26,9 +26,9 @@ class LogStash::Filters::Railsparallelrequest < LogStash::Filters::Base
 
   def filter(event)
     return unless filter?(event)
-    return if event.tags.include? self.class.config_name
+    return if event["tags"].include? self.class.config_name
 
-    event.tags << self.class.config_name
+    event["tags"] << self.class.config_name
 
     line = event["message"]
 

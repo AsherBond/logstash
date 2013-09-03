@@ -3,7 +3,7 @@
 #   wget or curl
 #
 JRUBY_VERSION=1.7.4
-ELASTICSEARCH_VERSION=0.90.2
+ELASTICSEARCH_VERSION=0.90.3
 #VERSION=$(shell ruby -r./lib/logstash/version -e 'puts LOGSTASH_VERSION')
 VERSION=$(shell awk -F\" '/LOGSTASH_VERSION/ {print $$2}' lib/logstash/version.rb)
 
@@ -17,7 +17,7 @@ ELASTICSEARCH=vendor/jar/elasticsearch-$(ELASTICSEARCH_VERSION)
 GEOIP=vendor/geoip/GeoLiteCity.dat
 GEOIP_URL=http://logstash.objects.dreamhost.com/maxmind/GeoLiteCity-2013-01-18.dat.gz
 KIBANA_URL=https://github.com/elasticsearch/kibana/archive/master.tar.gz
-PLUGIN_FILES=$(shell git ls-files | egrep '^lib/logstash/(inputs|outputs|filters)/[^/]+$$' | egrep -v '/(base|threadable).rb$$|/inputs/ganglia/')
+PLUGIN_FILES=$(shell git ls-files | egrep '^lib/logstash/(inputs|outputs|filters|codecs)/[^/]+$$' | egrep -v '/(base|threadable).rb$$|/inputs/ganglia/')
 QUIET=@
 
 WGET=$(shell which wget 2>/dev/null)
@@ -33,7 +33,7 @@ endif
 
 TESTS=$(wildcard spec/support/*.rb spec/filters/*.rb spec/examples/*.rb spec/codecs/*.rb spec/conditionals/*.rb spec/event.rb spec/jar.rb)
 #spec/outputs/graphite.rb spec/outputs/email.rb)
-default: 
+default:
 	@echo "Make targets you might be interested in:"
 	@echo "  flatjar -- builds the flatjar jar"
 	@echo "  flatjar-test -- runs the test suite against the flatjar"
@@ -66,6 +66,7 @@ clean:
 	-$(QUIET)rm -rf .bundle
 	-$(QUIET)rm -rf build
 	-$(QUIET)rm -rf vendor
+	-$(QUIET)rm -f pkg/*.deb
 
 .PHONY: compile
 compile: compile-grammar compile-runner | build/ruby
@@ -116,7 +117,9 @@ vendor/geoip: | vendor
 	$(QUIET)mkdir $@
 
 $(GEOIP): | vendor/geoip
-	$(QUIET)wget -q -O - $(GEOIP_URL) | gzip -dc - > $@
+	$(QUIET)$(DOWNLOAD_COMMAND) $@.tmp.gz $(GEOIP_URL)
+	$(QUIET)gzip -dc $@.tmp.gz > $@.tmp
+	$(QUIET)mv $@.tmp $@
 
 # Always run vendor/bundle
 .PHONY: fix-bundler
@@ -133,7 +136,7 @@ vendor/bundle: | vendor $(JRUBY)
 	$(QUIET)GEM_HOME=./vendor/bundle/jruby/1.9/ GEM_PATH= $(JRUBY_CMD) --1.9 ./gembag.rb logstash.gemspec
 	@# Purge old version of json
 	#$(QUIET)GEM_HOME=./vendor/bundle/jruby/1.9/ GEM_PATH= $(JRUBY_CMD) --1.9 -S gem uninstall json -v 1.6.5
-	@# Purge old versions of gems installed because gembag doesn't do 
+	@# Purge old versions of gems installed because gembag doesn't do
 	@# dependency resolution correctly.
 	$(QUIET)GEM_HOME=./vendor/bundle/jruby/1.9/ GEM_PATH= $(JRUBY_CMD) --1.9 -S gem uninstall addressable -v 2.2.8
 	@# uninstall the newer ffi (1.1.5 vs 1.3.1) because that's what makes
@@ -170,7 +173,7 @@ build/monolith: compile copy-ruby-files vendor/jar/graphtastic-rmiclient.jar
 	$(QUIET)mkdir -p $@/META-INF/services/
 	$(QUIET)find $$PWD/vendor/bundle $$PWD/vendor/jar -name '*.jar' \
 	| xargs $(JRUBY_CMD) extract_services.rb -o $@/META-INF/services
-	@# copy openssl/lib/shared folders/files to root of jar 
+	@# copy openssl/lib/shared folders/files to root of jar
 	@#- need this for openssl to work with JRuby
 	$(QUIET)mkdir -p $@/openssl
 	$(QUIET)mkdir -p $@/jopenssl
@@ -261,8 +264,8 @@ update-flatjar: copy-ruby-files compile build/ruby/logstash/runner.class
 
 .PHONY: test
 test: | $(JRUBY) vendor-elasticsearch
-	@#$(JRUBY_CMD) bin/logstash test
-	GEM_HOME= GEM_PATH= bin/logstash rspec $(TESTS)
+	GEM_HOME= GEM_PATH= bin/logstash rspec --order rand --fail-fast $(TESTS)
+
 
 .PHONY: docs
 docs: docgen doccopy docindex
@@ -275,7 +278,7 @@ docgen: $(addprefix build/docs/,$(subst lib/logstash/,,$(subst .rb,.html,$(PLUGI
 build/docs: build
 	-$(QUIET)mkdir $@
 
-build/docs/inputs build/docs/filters build/docs/outputs: | build/docs
+build/docs/inputs build/docs/filters build/docs/outputs build/docs/codecs: | build/docs
 	-$(QUIET)mkdir $@
 
 # bluecloth gem doesn't work on jruby. Use ruby.
@@ -291,6 +294,9 @@ build/docs/outputs/%.html: lib/logstash/outputs/%.rb docs/docgen.rb docs/plugin-
 	$(QUIET)ruby docs/docgen.rb -o build/docs $<
 	$(QUIET)sed -i -re 's/%VERSION%/$(VERSION)/g' $@
 	$(QUIET)sed -i -re 's/%ELASTICSEARCH_VERSION%/$(ELASTICSEARCH_VERSION)/g' $@
+build/docs/codecs/%.html: lib/logstash/codecs/%.rb docs/docgen.rb docs/plugin-doc.html.erb | build/docs/codecs
+	$(QUIET)ruby docs/docgen.rb -o build/docs $<
+	$(QUIET)sed -i -re 's/%VERSION%/$(VERSION)/g' $@
 
 build/docs/%: docs/% lib/logstash/version.rb Makefile
 	@echo "Copying $< (to $@)"
@@ -326,7 +332,7 @@ sync-jira-components: $(addprefix create/jiracomponent/,$(subst lib/logstash/,,$
 	-$(QUIET)$(JIRACLI) --action run --file tmp_jira_action_list --continue > /dev/null 2>&1
 	$(QUIET)rm tmp_jira_action_list
 
-create/jiracomponent/%: 
+create/jiracomponent/%:
 	$(QUIET)echo "--action addComponent --project LOGSTASH --name $(subst create/jiracomponent/,,$@)" >> tmp_jira_action_list
 
 ## Release note section (up to you if/how/when to integrate in docs)
@@ -335,19 +341,19 @@ create/jiracomponent/%:
 #  - issues for FixVersion from JIRA
 
 # Note on used Github logic
-# We parse the commit between the last tag (should be the last release) and HEAD 
+# We parse the commit between the last tag (should be the last release) and HEAD
 # to extract all the notice about merged pull requests.
 
 # Note on used JIRA release note URL
-# The JIRA Release note list all issues (even open ones) 
+# The JIRA Release note list all issues (even open ones)
 # with Fix Version assigned to target version
 # So one must verify manually that there is no open issue left (TODO use JIRACLI)
 
-# This is the ID for a version item in jira, can be obtained by CLI 
+# This is the ID for a version item in jira, can be obtained by CLI
 # or through the Version URL https://logstash.jira.com/browse/LOGSTASH/fixforversion/xxx
 JIRA_VERSION_ID=10820
 
-releaseNote: 
+releaseNote:
 	-$(QUIET)rm releaseNote.html
 	$(QUIET)curl -si "https://logstash.jira.com/secure/ReleaseNote.jspa?version=$(JIRA_VERSION_ID)&projectId=10020" | sed -n '/<textarea.*>/,/<\/textarea>/p' | grep textarea -v >> releaseNote.html
 	$(QUIET)ruby pull_release_note.rb
@@ -364,3 +370,4 @@ package:
 vendor/kibana: | build
 	$(QUIET)mkdir vendor/kibana || true
 	$(DOWNLOAD_COMMAND) - $(KIBANA_URL) | tar -C $@ -zx --strip-components=1
+	$(QUIET)mv vendor/kibana/dashboards/logstash.json vendor/kibana/dashboards/default.json

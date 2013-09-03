@@ -41,7 +41,7 @@ describe LogStash::Filters::Grok do
 
     sample "<191>1 2009-06-30T18:30:00+02:00 paxton.local grokdebug 4123 - [id1 foo=\"bar\"][id2 baz=\"something\"] Hello, syslog." do
       insist { subject["tags"] }.nil?
-      insist { subject["syslog5424_pri"] } == "<191>"
+      insist { subject["syslog5424_pri"] } == "191"
       insist { subject["syslog5424_ver"] } == "1"
       insist { subject["syslog5424_ts"] } == "2009-06-30T18:30:00+02:00"
       insist { subject["syslog5424_host"] } == "paxton.local"
@@ -50,6 +50,45 @@ describe LogStash::Filters::Grok do
       insist { subject["syslog5424_msgid"] } == nil
       insist { subject["syslog5424_sd"] } == "[id1 foo=\"bar\"][id2 baz=\"something\"]"
       insist { subject["syslog5424_msg"] } == "Hello, syslog."
+    end
+
+    sample "<191>1 2009-06-30T18:30:00+02:00 paxton.local grokdebug - - [id1 foo=\"bar\"] No process ID." do
+      insist { subject["tags"] }.nil?
+      insist { subject["syslog5424_pri"] } == "191"
+      insist { subject["syslog5424_ver"] } == "1"
+      insist { subject["syslog5424_ts"] } == "2009-06-30T18:30:00+02:00"
+      insist { subject["syslog5424_host"] } == "paxton.local"
+      insist { subject["syslog5424_app"] } == "grokdebug"
+      insist { subject["syslog5424_proc"] } == nil
+      insist { subject["syslog5424_msgid"] } == nil
+      insist { subject["syslog5424_sd"] } == "[id1 foo=\"bar\"]"
+      insist { subject["syslog5424_msg"] } == "No process ID."
+    end
+
+    sample "<191>1 2009-06-30T18:30:00+02:00 paxton.local grokdebug 4123 - - No structured data." do
+      insist { subject["tags"] }.nil?
+      insist { subject["syslog5424_pri"] } == "191"
+      insist { subject["syslog5424_ver"] } == "1"
+      insist { subject["syslog5424_ts"] } == "2009-06-30T18:30:00+02:00"
+      insist { subject["syslog5424_host"] } == "paxton.local"
+      insist { subject["syslog5424_app"] } == "grokdebug"
+      insist { subject["syslog5424_proc"] } == "4123"
+      insist { subject["syslog5424_msgid"] } == nil
+      insist { subject["syslog5424_sd"] } == nil
+      insist { subject["syslog5424_msg"] } == "No structured data."
+    end
+
+    sample "<191>1 2009-06-30T18:30:00+02:00 paxton.local grokdebug - - - No PID or SD." do
+      insist { subject["tags"] }.nil?
+      insist { subject["syslog5424_pri"] } == "191"
+      insist { subject["syslog5424_ver"] } == "1"
+      insist { subject["syslog5424_ts"] } == "2009-06-30T18:30:00+02:00"
+      insist { subject["syslog5424_host"] } == "paxton.local"
+      insist { subject["syslog5424_app"] } == "grokdebug"
+      insist { subject["syslog5424_proc"] } == nil
+      insist { subject["syslog5424_msgid"] } == nil
+      insist { subject["syslog5424_sd"] } == nil
+      insist { subject["syslog5424_msg"] } == "No PID or SD."
     end
   end
 
@@ -263,6 +302,34 @@ describe LogStash::Filters::Grok do
     end
   end
 
+  describe "grok on %{LOGLEVEL}" do
+    config <<-'CONFIG'
+      filter {
+        grok {
+          pattern => "%{LOGLEVEL:level}: error!"
+        }
+      }
+    CONFIG
+
+    log_level_names = %w(
+      trace Trace TRACE
+      debug Debug DEBUG
+      notice Notice Notice
+      info Info INFO
+      warn warning Warn Warning WARN WARNING
+      err error Err Error ERR ERROR
+      crit critical Crit Critical CRIT CRITICAL
+      fatal Fatal FATAL
+      severe Severe SEVERE
+      emerg emergency Emerg Emergency EMERG EMERGENCY
+    )
+    log_level_names.each do |level_name|
+      sample "#{level_name}: error!" do
+        insist { subject['level'] } == level_name
+      end
+    end
+  end
+
   describe "tagging on failure" do
     config <<-CONFIG
       filter {
@@ -312,7 +379,7 @@ describe LogStash::Filters::Grok do
     end
   end
 
-  describe "performance test" do
+  describe "performance test", :if => ENV["SPEEDTEST"] do
     event_count = 100000
     min_rate = 4000
 

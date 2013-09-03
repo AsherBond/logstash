@@ -24,7 +24,7 @@ require "logstash/outputs/base"
 #          match => [ "@message", "(error|ERROR|CRITICAL)" ]
 #          add_tag => [ "zabbix-sender" ]
 #          add_field => [
-#            "zabbix_host", "%{@source_host}",
+#            "zabbix_host", "%{source_host}",
 #            "zabbix_item", "item.key"
 #          ]
 #       }
@@ -71,7 +71,7 @@ class LogStash::Outputs::Zabbix < LogStash::Outputs::Base
       return
     end
  
-    host = event.fields["zabbix_host"]
+    host = event["zabbix_host"]
     if !host
       @logger.warn("Skipping zabbix output; zabbix_host field is missing",
                    :missed_event => event)
@@ -79,7 +79,7 @@ class LogStash::Outputs::Zabbix < LogStash::Outputs::Base
     end
     host = host.first if host.is_a?(Array)
  
-    item = event.fields["zabbix_item"]
+    item = event["zabbix_item"]
     if !item
       @logger.warn("Skipping zabbix output; zabbix_item field is missing",
                    :missed_event => event)
@@ -87,7 +87,7 @@ class LogStash::Outputs::Zabbix < LogStash::Outputs::Base
     end
     item = item.first if item.is_a?(Array)
  
-    zmsg = event.message
+    zmsg = event["message"]
     zmsg = zmsg.gsub("\n", "\\n")
     zmsg = zmsg.gsub(/"/, "\\\"")
  

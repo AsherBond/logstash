@@ -62,7 +62,19 @@ module LogStash::Config::Mixin
     self.class.get_config.each do |name, opts|
       next if params.include?(name.to_s)
       if opts.include?(:default) and (name.is_a?(Symbol) or name.is_a?(String))
-        params[name.to_s] = opts[:default] unless params.include?(name.to_s)
+        # default values should be cloned if possible
+        # cloning prevents 
+        case opts[:default]
+          when FalseClass, TrueClass, NilClass, Numeric
+            params[name.to_s] = opts[:default]
+          else
+            params[name.to_s] = opts[:default].clone
+        end
+      end
+
+      # Allow plugins to override default values of config settings
+      if self.class.default?(name)
+        params[name.to_s] = self.class.get_default(name)
       end
     end
 
@@ -117,19 +129,22 @@ module LogStash::Config::Mixin
       end
     end # def config
 
+    def default(name, value)
+      @defaults ||= {}
+      @defaults[name.to_s] = value
+    end
+
     def get_config
       return @config
     end # def get_config
 
-    # Define a flag 
-    def flag(*args, &block)
-      @flags ||= []
+    def get_default(name)
+      return @defaults && @defaults[name]
+    end
 
-      @flags << {
-        :args => args,
-        :block => block
-      }
-    end # def flag
+    def default?(name)
+      return @defaults && @defaults.include?(name)
+    end
 
     def options(opts)
       # add any options from this class
@@ -253,7 +268,8 @@ module LogStash::Config::Mixin
           else
             @logger.error(I18n.t("logstash.agent.configuration.setting_invalid",
                                  :plugin => @plugin_name, :type => @plugin_type,
-                                 :setting => key, :value => value, :value_type => config_val,
+                                 :setting => key, :value => value.inspect,
+                                 :value_type => config_val,
                                  :note => result))
           end
           #puts "Result: #{key} / #{result.inspect} / #{success}"

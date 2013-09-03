@@ -48,7 +48,6 @@ class LogStash::Inputs::Snmptrap < LogStash::Inputs::Base
 
   public
   def run(output_queue)
-    LogStash::Util::set_thread_name("input|snmptrap|#{@community}")
     begin
       # snmp trap server
       snmptrap_listener(output_queue)
@@ -70,12 +69,13 @@ class LogStash::Inputs::Snmptrap < LogStash::Inputs::Base
 
     @snmptrap.on_trap_default do |trap|
       begin
-        event = to_event(trap.inspect, trap.source_ip)
+        event = LogStash::Event.new("message" => trap.inspect, "host" => trap.source_ip)
+        decorate(event)
         trap.each_varbind do |vb|
           event[vb.name.to_s] = vb.value.to_s
         end
         @logger.debug("SNMP Trap received: ", :trap_object => trap.inspect)
-        output_queue << event if event
+        output_queue << event
       rescue => event
         @logger.error("Failed to create event", :trap_object => trap.inspect)
       end

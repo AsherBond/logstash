@@ -125,7 +125,6 @@ class LogStash::Inputs::Sqlite < LogStash::Inputs::Base
     require "sequel"
     require "jdbc/sqlite3" 
     @host = Socket.gethostname
-    LogStash::Util::set_thread_name("input|sqlite|#{@path}")
     @logger.info("Registering sqlite input", :database => @path)
     @db = Sequel.connect("jdbc:sqlite:#{@path}") 
     @tables = get_all_tables(@db)
@@ -154,14 +153,14 @@ class LogStash::Inputs::Sqlite < LogStash::Inputs::Base
           rows = get_n_rows_from_table(@db, table_name, offset, @batch)
           count += rows.count
           rows.each do |row| 
-            e = to_event("", "sqlite://#{@host}/#{@path}")
-
+            event = LogStash::Event.new("host" => @host, "db" => @db)
+            decorate(event)
             # store each column as a field in the event.
             row.each do |column, element|
               next if column == :id
-              e[column.to_s] = element
+              event[column.to_s] = element
             end
-            queue << e
+            queue << event
             @table_data[k][:place] = row[:id]
           end
           # Store the last-seen row in the database

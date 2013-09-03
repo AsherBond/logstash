@@ -14,6 +14,8 @@ class LogStash::Inputs::Gelf < LogStash::Inputs::Base
   config_name "gelf"
   milestone 2
 
+  default :codec, "plain"
+
   # The address to listen on
   config :host, :validate => :string, :default => "0.0.0.0"
 
@@ -28,20 +30,15 @@ class LogStash::Inputs::Gelf < LogStash::Inputs::Base
   #
   # Remapping converts the following gelf fields to logstash equivalents:
   #
-  # * event.message becomes full_message
-  #   if no full_message, use event.message becomes short_message
-  #   if no short_message, event.message is the raw json input
-  # * host + file to event.source
+  # * event["message"] becomes full_message
+  #   if no full_message, use event["message"] becomes short_message
+  #   if no short_message, event["message"] is the raw json input
   config :remap, :validate => :boolean, :default => true
 
   public
   def initialize(params)
     super
     BasicSocket.do_not_reverse_lookup = true
-
-    # nothing else makes sense here
-    # gelf messages ARE json
-    @format = "json"
   end # def initialize
 
   public
@@ -52,7 +49,6 @@ class LogStash::Inputs::Gelf < LogStash::Inputs::Base
 
   public
   def run(output_queue)
-    LogStash::Util::set_thread_name("input|gelf")
     begin
       # udp server
       udp_listener(output_queue)
@@ -68,32 +64,34 @@ class LogStash::Inputs::Gelf < LogStash::Inputs::Base
     @logger.info("Starting gelf listener", :address => "#{@host}:#{@port}")
 
     if @udp 
-      @udp.close_read
-      @udp.close_write
+      @udp.close_read rescue nil
+      @udp.close_write rescue nil
     end
 
     @udp = UDPSocket.new(Socket::AF_INET)
     @udp.bind(@host, @port)
 
-    loop do
+    while true
       line, client = @udp.recvfrom(8192)
-      # Ruby uri sucks, so don't use it.
-      source = "gelf://#{client[3]}/"
       begin
         data = Gelfd::Parser.parse(line)
       rescue => ex
         @logger.warn("Gelfd failed to parse a message skipping", :exception => ex, :backtrace => ex.backtrace)
+        next
       end
 
-      # The nil guard is needed to deal with chunked messages.
-      # Gelfd::Parser.parse will only return the message when all chunks are
-      # completed
-      e = to_event(data, source) unless data.nil?
-      if e
-        remap_gelf(e) if @remap
-        output_queue << e
+      event = LogStash::Event.new(JSON.parse(data))
+      event["host"] = client[3]
+      if event["timestamp"].is_a?(Numeric)
+        event["@timestamp"] = Time.at(event["timestamp"]).gmtime
+        event.remove("timestamp")
       end
+      remap_gelf(event) if @remap
+      decorate(event)
+      output_queue << event
     end
+  rescue LogStash::ShutdownSignal
+    # Do nothing, shutdown.
   ensure
     if @udp
       @udp.close_read rescue nil
@@ -103,17 +101,23 @@ class LogStash::Inputs::Gelf < LogStash::Inputs::Base
 
   private
   def remap_gelf(event)
-    if event.fields["full_message"]
-      event.message = event.fields["full_message"].dup
-    elsif event.fields["short_message"]
-      event.message = event.fields["short_message"].dup
+    if event["full_message"]
+      event["message"] = event["full_message"].dup
+      event.remove("full_message")
+      if event["short_message"] == event["message"]
+        event.remove("short_message")
+      end
+    elsif event["short_message"]
+      event["message"] = event["short_message"].dup
+      event.remove("short_message")
     end
-    if event.fields["host"]
-      event.source_host = event.fields["host"]
+
+
+    # Map all '_foo' fields to simply 'foo'
+    event.to_hash.keys.each do |key|
+      next unless key[0,1] == "_"
+      event[key[1..-1]] = event[key]
+      event.remove(key)
     end
-    if event.fields["file"]
-      event.source_path = event.fields["file"]
-    end
-    event.source = "gelf://#{event.fields["host"]}/#{event.fields["file"]}"
   end # def remap_gelf
 end # class LogStash::Inputs::Gelf

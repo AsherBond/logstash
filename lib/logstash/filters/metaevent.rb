@@ -49,19 +49,19 @@ class LogStash::Filters::Metaevent < LogStash::Filters::Base
     @logger.debug(["metaevent", @add_tag, "trigger", event])
 
     event = LogStash::Event.new
-    event.source_host = Socket.gethostname
-    event.tags = @add_tag
+    event["source"] = Socket.gethostname
+    event["tags"] = [@add_tag]
 
     @metaevents << event
     @start_event = nil
   end
 
   def followed_by_tags_match(event)
-    (event.tags & @followed_by_tags).size == @followed_by_tags.size
+    (event["tags"] & @followed_by_tags).size == @followed_by_tags.size
   end
 
   def within_period(event)
-    time_delta = event.ruby_timestamp - @start_event.ruby_timestamp
+    time_delta = event["@timestamp"] - @start_event["@timestamp"]
     time_delta >= 0 && time_delta <= @period
   end
 end

@@ -17,6 +17,8 @@ class LogStash::Inputs::DrupalDblog < LogStash::Inputs::Base
   config_name "drupal_dblog"
   milestone 1
 
+  default :codec, "plain"
+
   # Specify all drupal databases that you whish to import from.
   # This can be as many as you whish.
   # The format is a hash, with a unique site name as the key, and a databse
@@ -52,12 +54,6 @@ class LogStash::Inputs::DrupalDblog < LogStash::Inputs::Base
   # The type is also stored as part of the event itself, so you
   # can also use the type to search for in the web interface.
   config :type, :validate => :string, :default => 'watchdog'
-
-  public
-  def initialize(params)
-    super
-    @format = "json_event"
-  end # def initialize
 
   public
   def register
@@ -209,6 +205,7 @@ class LogStash::Inputs::DrupalDblog < LogStash::Inputs::Base
         results.each do |row|
           event = build_event(row)
           if event
+            decorate(event)
             output_queue << event
             lastWid = row['wid'].to_s
           end
@@ -315,13 +312,11 @@ class LogStash::Inputs::DrupalDblog < LogStash::Inputs::Base
       "@timestamp" => timestamp,
       "tags" => [],
       "type" => "watchdog",
-      "source" => @sitename,
+      "site" => @sitename,
       "message" => msg
     }.merge(row)
 
-    event = to_event(JSON.dump(entry), @sitename)
-
-    return event
+    return LogStash::Event.new(entry)
   end # def build_event
 
 end # class LogStash::Inputs::DrupalDblog

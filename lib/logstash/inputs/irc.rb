@@ -9,11 +9,13 @@ class LogStash::Inputs::Irc < LogStash::Inputs::Base
   config_name "irc"
   milestone 1
 
+  default :codec, "plain"
+
   # Host of the IRC Server to connect to.
   config :host, :validate => :string, :required => true
 
   # Port for the IRC Server
-  config :port, :validate => :number, :required => true
+  config :port, :validate => :number, :default => 6667
 
   # Set this to true to enable SSL.
   config :secure, :validate => :boolean, :default => false
@@ -35,11 +37,6 @@ class LogStash::Inputs::Irc < LogStash::Inputs::Base
   # These should be full channel names including the '#' symbol, such as
   # "#logstash".
   config :channels, :validate => :array, :required => true
-
-
-  def initialize(*args)
-    super(*args)
-  end # def initialize
 
   public
   def register
@@ -73,10 +70,13 @@ class LogStash::Inputs::Irc < LogStash::Inputs::Base
     loop do
       msg = @irc_queue.pop
       if msg.user
-        event = self.to_event(msg.message, "irc://#{@host}:#{@port}/#{msg.channel}")
-        event["channel"] = msg.channel
-        event["nick"] = msg.user.nick
-        output_queue << event
+        @codec.decode(msg.message) do |event|
+          decorate(event)
+          event["channel"] = msg.channel.to_s
+          event["nick"] = msg.user.nick
+          event["server"] = "#{@host}:#{@port}"
+          output_queue << event
+        end
       end
     end
   end # def run

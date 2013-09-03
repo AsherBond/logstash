@@ -30,7 +30,7 @@ describe LogStash::Event do
       insist { subject.sprintf("%{+%s}") } == "1356998400"
     end
     
-    it "should report a time with %{+format} syntax" do
+    it "should report a time with %{+format} syntax", :if => RUBY_ENGINE == "jruby" do
       insist { subject.sprintf("%{+YYYY}") } == "2013"
       insist { subject.sprintf("%{+MM}") } == "01"
       insist { subject.sprintf("%{+HH}") } == "00"
@@ -44,6 +44,10 @@ describe LogStash::Event do
     it "should print deep fields" do
       insist { subject.sprintf("%{[j][k1]}") } == "v"
       insist { subject.sprintf("%{[j][k2][0]}") } == "w"
+    end
+
+    it "should be able to take a non-string for the format" do
+      insist { subject.sprintf(2) } == "2"
     end
   end
   
@@ -64,7 +68,7 @@ describe LogStash::Event do
 
     end
 
-    it "should be fast?" do
+    it "should be fast?", :if => ENV["SPEEDTEST"] do
       2.times do
         start = Time.now
         100000.times { subject["[j][k1]"] }

@@ -16,10 +16,10 @@ class LogStash::Outputs::Datadog < LogStash::Outputs::Base
   config :api_key, :validate => :string, :required => true
 
   # Title
-  config :title, :validate => :string, :default => "Logstash event for %{@source_host}"
+  config :title, :validate => :string, :default => "Logstash event for %{source}"
 
   # Text
-  config :text, :validate => :string, :default => "%{@message}"
+  config :text, :validate => :string, :default => "%{message}"
 
   # Date Happened
   config :date_happened, :validate => :string
@@ -65,13 +65,13 @@ class LogStash::Outputs::Datadog < LogStash::Outputs::Base
     if @date_happened
       dd_event['date_happened'] = event.sprintf(@date_happened)
     else
-      dd_event['date_happened'] = event.unix_timestamp.to_i
+      dd_event['date_happened'] = event["@timestamp"].to_i
     end
 
     if @dd_tags
       tagz = @dd_tags.collect {|x| event.sprintf(x) }
     else
-      tagz = event.tags
+      tagz = event["tags"]
     end
     dd_event['tags'] = tagz if tagz
 

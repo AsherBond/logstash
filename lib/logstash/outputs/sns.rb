@@ -16,7 +16,7 @@ require "logstash/plugin_mixins/aws_config"
 #  * sns - If no ARN is found in the configuration file, this will be used as
 #  the ARN to publish.
 #  * sns_subject - The subject line that should be used.
-#  Optional. The "%{@source}" will be used if not present and truncated at
+#  Optional. The "%{source}" will be used if not present and truncated at
 #  MAX_SUBJECT_SIZE_IN_CHARACTERS.
 #  * sns_message - The message that should be
 #  sent. Optional. The event serialzed as JSON will be used if not present and
@@ -70,12 +70,12 @@ class LogStash::Outputs::Sns < LogStash::Outputs::Base
   def receive(event)
     return unless output?(event)
 
-    arn     = Array(event.fields["sns"]).first || @arn
+    arn     = Array(event["sns"]).first || @arn
 
     raise "An SNS ARN required." unless arn
 
-    message = Array(event.fields["sns_message"]).first
-    subject = Array(event.fields["sns_subject"]).first || event.source
+    message = Array(event["sns_message"]).first
+    subject = Array(event["sns_subject"]).first || event.source
 
     # Ensure message doesn't exceed the maximum size.
     if message
@@ -104,18 +104,18 @@ class LogStash::Outputs::Sns < LogStash::Outputs::Base
     # Truncate only the message if the JSON structure is too large.
     if json_size > MAX_MESSAGE_SIZE_IN_BYTES
       # TODO: Utilize `byteslice` in JRuby 1.7: http://jira.codehaus.org/browse/JRUBY-5547
-      event.message = event.message.slice(0, (event.message.bytesize - (json_size - MAX_MESSAGE_SIZE_IN_BYTES)))
+      event["message"] = event["message"].slice(0, (event["message"].bytesize - (json_size - MAX_MESSAGE_SIZE_IN_BYTES)))
     end
 
     event.to_json
   end
 
   def self.format_message(event)
-    message =  "Date: #{event.timestamp}\n"
-    message << "Source: #{event.source}\n"
-    message << "Tags: #{event.tags.join(', ')}\n"
-    message << "Fields: #{event.fields.inspect}\n"
-    message << "Message: #{event.message}"
+    message =  "Date: #{event["@timestamp"]}\n"
+    message << "Source: #{event["source"]}\n"
+    message << "Tags: #{event["tags"].join(', ')}\n"
+    message << "Fields: #{event.to_hash.inspect}\n"
+    message << "Message: #{event["message"]}"
 
     # TODO: Utilize `byteslice` in JRuby 1.7: http://jira.codehaus.org/browse/JRUBY-5547
     message.slice(0, MAX_MESSAGE_SIZE_IN_BYTES)

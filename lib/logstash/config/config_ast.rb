@@ -53,11 +53,12 @@ module LogStash; module Config; module AST
       end
 
       # start inputs
-      code << "class << self"
+      #code << "class << self"
       definitions = []
         
       ["filter", "output"].each do |type|
-        definitions << "def #{type}(event)"
+        #definitions << "def #{type}(event)"
+        definitions << "@#{type}_func = lambda do |event, &block|"
         if type == "filter"
           definitions << "  extra_events = []"
         end
@@ -68,13 +69,13 @@ module LogStash; module Config; module AST
         end
 
         if type == "filter"
-          definitions << "  extra_events.each { |e| yield e }"
+          definitions << "  extra_events.each(&block)"
         end
         definitions << "end"
       end
 
       code += definitions.join("\n").split("\n", -1).collect { |l| "  #{l}" }
-      code << "end"
+      #code << "end"
       return code.join("\n")
     end
   end
@@ -169,7 +170,7 @@ module LogStash; module Config; module AST
             "  extra_events << newevent",
             "end",
             "if event.cancelled?",
-            "  extra_events.each { |e| yield e }",
+            "  extra_events.each(&block)",
             "  return",
             "end",
           ].map { |l| "#{l}\n" }.join("")
@@ -193,7 +194,8 @@ module LogStash; module Config; module AST
       return %Q(#{name.compile} => #{value.compile})
     end
   end
-  class Value < Node; end
+  class RValue < Node; end
+  class Value < RValue; end
   class Bareword < Value
     def compile
       return text_value.inspect
@@ -202,6 +204,11 @@ module LogStash; module Config; module AST
   class String < Value
     def compile
       return text_value[1...-1].inspect
+    end
+  end
+  class RegExp < Value
+    def compile
+      return text_value
     end
   end
   class Number < Value
@@ -260,20 +267,55 @@ module LogStash; module Config; module AST
       return "(#{super})"
     end
   end
+
   module Expression
     def compile
       return "(#{super})"
     end
   end
-  class Rvalue < Node
+
+  module NegativeExpression
+    def compile
+      return "!(#{super})"
+    end
   end
+
+  module ComparisonExpression; end
+
+  module InExpression
+    def compile
+      item, list = recursive_select(LogStash::Config::AST::RValue)
+      return "(x = #{list.compile}; x.respond_to?(:include?) && x.include?(#{item.compile}))"
+    end
+  end
+
   class MethodCall < Node
     def compile
       arguments = recursive_inject { |e| [String, Number, Selector, Array, MethodCall].any? { |c| e.is_a?(c) } }
       return "#{method.text_value}(" << arguments.collect(&:compile).join(", ") << ")"
     end
   end
+
+  class RegexpExpression < Node
+    def compile
+      operator = recursive_select(LogStash::Config::AST::RegExpOperator).first.text_value
+      item, regexp = recursive_select(LogStash::Config::AST::RValue)
+      # Compile strings to regexp's
+      if regexp.is_a?(LogStash::Config::AST::String)
+        regexp = "/#{regexp.text_value[1..-2]}/"
+      else
+        regexp = regexp.compile
+      end
+      return "(#{item.compile} #{operator} #{regexp})"
+    end
+  end
+
   module ComparisonOperator 
+    def compile
+      return " #{text_value} "
+    end
+  end
+  module RegExpOperator
     def compile
       return " #{text_value} "
     end
@@ -283,7 +325,7 @@ module LogStash; module Config; module AST
       return " #{text_value} "
     end
   end
-  class Selector < Node
+  class Selector < RValue
     def compile
       return "event[#{text_value.inspect}]"
     end

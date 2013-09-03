@@ -38,13 +38,13 @@ class LogStash::Filters::Grokdiscovery < LogStash::Filters::Base
     return unless filter?(event)
 
     # parse it with grok
-    message = event.message
+    message = event["message"]
     match = false
 
     if event.type and @discover_fields.include?(event.type)
-      discover = @discover_fields[event.type] & event.fields.keys
+      discover = @discover_fields[event.type] & event.to_hash.keys
       discover.each do |field|
-        value = event.fields[field]
+        value = event[field]
         value = [value] if value.is_a?(String)
 
         value.each do |v| 
@@ -54,7 +54,7 @@ class LogStash::Filters::Grokdiscovery < LogStash::Filters::Base
           match = @grok.match(v)
           if match
             @logger.warn(["Match", match.captures])
-            event.fields.merge!(match.captures) do |key, oldval, newval|
+            event.to_hash.merge!(match.captures) do |key, oldval, newval|
               @logger.warn(["Merging #{key}", oldval, newval])
               oldval + newval # should both be arrays...
             end
