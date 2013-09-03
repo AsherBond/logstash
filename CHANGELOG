@@ -80,8 +80,11 @@
   - feature: useragent: added 'prefix' setting to prefix field names created
     by this filter. (#524, patch by Jay Luker)
   - bugfix: mutate: strip works now (#590, Jonathan Van Eenwyk)
+  - new: extractnumbers: extract all numbers from a message (#579, patch by
+    Pablo Barrera)
 
   ## outputs
+  - new: jira: create jira tickets from an event (#536, patch by Martin Cleaver)
   - feature: rabbitmq: now well-supported again (patches by Michael Klishin)
   - improvement: stomp: vhost support (Patch by Matt Dainty)
   - feature: elasticsearch: now uses the bulk index api and supports
