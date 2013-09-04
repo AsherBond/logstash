@@ -36,7 +36,8 @@ Gem::Specification.new do |gem|
   # Input/Output/Filter dependencies
   #TODO Can these be optional?
   gem.add_runtime_dependency "awesome_print"                    #(MIT license)
-  gem.add_runtime_dependency "aws-sdk"                          #{Apache 2.0 license}
+  gem.add_runtime_dependency "aws-sdk"                          #{Apache 2.0 license}  
+  gem.add_runtime_dependency "google-api-client"                #{Apache 2.0 license}
   gem.add_runtime_dependency "heroku"                           #(MIT license)
   gem.add_runtime_dependency "addressable"                      #(Apache 2.0 license)
   gem.add_runtime_dependency "extlib", ["0.9.16"]               #(MIT license)
@@ -71,7 +72,8 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "mail"                             #(MIT license)
   gem.add_runtime_dependency "rbnacl"                           #(MIT license)
   gem.add_runtime_dependency "sequel"                           #(MIT license)
-  gem.add_runtime_dependency "jdbc-sqlite3"                      #(MIT license)
+  gem.add_runtime_dependency "jdbc-sqlite3"                     #(MIT license)
+  gem.add_runtime_dependency "bindata", [">= 1.5.0"]            #(ruby license)
 
   if RUBY_PLATFORM == 'java'
     gem.platform = RUBY_PLATFORM
