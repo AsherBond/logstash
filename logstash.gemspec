@@ -25,7 +25,7 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "i18n"               #(MIT license)
 
   # Web dependencies
-  gem.add_runtime_dependency "ftw", ["~> 0.0.36"] #(Apache 2.0 license)
+  gem.add_runtime_dependency "ftw", ["~> 0.0.37"] #(Apache 2.0 license)
   gem.add_runtime_dependency "haml"               #(MIT license)
   gem.add_runtime_dependency "rack"               #(MIT license)
   gem.add_runtime_dependency "sass"               #(MIT license)
@@ -101,6 +101,11 @@ Gem::Specification.new do |gem|
 
   if RUBY_VERSION >= '1.9.1'
     gem.add_runtime_dependency "cinch" # cinch requires 1.9.1+ #(MIT license)
+  end
+
+  if RUBY_ENGINE == "rbx"
+    # rubinius puts the ruby stdlib into gems.
+    gem.add_runtime_dependency "rubysl"
   end
 
   # These are runtime-deps so you can do 'java -jar logstash.jar rspec <test>'
