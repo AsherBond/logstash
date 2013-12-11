@@ -24,29 +24,32 @@ class LogStash::Outputs::ElasticSearchHTTP < LogStash::Outputs::Base
   # The index type to write events to. Generally you should try to write only
   # similar events to the same 'type'. String expansion '%{foo}' works here.
   config :index_type, :validate => :string
-  
-  # Starting in Logstash 1.3 (unless you set option "manage_template" to false) 
-  # a default mapping template for Elasticsearch will be applied if you do not 
+
+  # Starting in Logstash 1.3 (unless you set option "manage_template" to false)
+  # a default mapping template for Elasticsearch will be applied, if you do not 
   # already have one set to match the index pattern defined (default of 
   # "logstash-%{+YYYY.MM.dd}"), minus any variables.  For example, in this case
   # the template will be applied to all indices starting with logstash-* 
+  #
   # If you have dynamic templating (e.g. creating indices based on field names)
   # then you should set "manage_template" to false and use the REST API to upload
   # your templates manually.
+  config :manage_template, :validate => :boolean, :default => true
+
   # This configuration option defines how the template is named inside Elasticsearch
-  config :template_name, :validate => :string, :default => "logstash_per_index"
-  
+  # Note that if you have used the template management features and subsequently
+  # change this you will need to prune the old template manually, e.g.
+  # curl -XDELETE http://localhost:9200/_template/OLD_template_name?pretty
+  # where OLD_template_name is whatever the former setting was.
+  config :template_name, :validate => :string, :default => "logstash"
+
   # You can set the path to your own template here, if you so desire.  
   # If not the included template will be used.
   config :template, :validate => :path
-  
+
   # Overwrite the current template with whatever is configured 
   # in the template and template_name directives.
   config :template_overwrite, :validate => :boolean, :default => false
-  
-  # Logstash will install the default template unless it finds one pre-existing
-  # or you have set this option to false.
-  config :manage_template, :validate => :boolean, :default => true
 
   # The hostname or ip address to reach your elasticsearch server.
   config :host, :validate => :string, :required => true
@@ -173,7 +176,7 @@ class LogStash::Outputs::ElasticSearchHTTP < LogStash::Outputs::Base
       if __FILE__ =~ /^(jar:)?file:\/.+!.+/
         begin
           # Running from a jar, assume types.db is at the root.
-          jar_path = [__FILE__.split("!").first, "/elasticsearch-template.json"].join("!")
+          jar_path = [__FILE__.split("!").first, "elasticsearch-template.json"].join("!")
           @template = jar_path
         rescue => ex
           raise "Failed to cache, due to: #{ex}\n#{ex.backtrace}"
@@ -181,8 +184,8 @@ class LogStash::Outputs::ElasticSearchHTTP < LogStash::Outputs::Base
       else
         if File.exists?("elasticsearch-template.json")
           @template = "elasticsearch-template.json"
-        elsif File.exists?("lib/logstash/outputs/elasticsearch-template.json")
-          @template = "lib/logstash/outputs/elasticsearch-template.json"
+        elsif File.exists?("lib/logstash/outputs/elasticsearch/elasticsearch-template.json")
+          @template = "lib/logstash/outputs/elasticsearch/elasticsearch-template.json"
         else
           raise "You must specify 'template => ...' in your elasticsearch_http output"
         end
