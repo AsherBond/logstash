@@ -103,6 +103,8 @@ case $os in
       --url "$URL" \
       --description "$DESCRIPTION" \
       -d "jre >= 1.6.0" \
+      --vendor "Elasticsearch" \
+      --license "Apache 2.0" \
       --before-install centos/before-install.sh \
       --before-remove centos/before-remove.sh \
       --after-install centos/after-install.sh \
@@ -122,6 +124,8 @@ case $os in
       -a all --iteration "1-${os}${DEB_REVISION}" \
       --url "$URL" \
       --description "$DESCRIPTION" \
+      --vendor "Elasticsearch" \
+      --license "Apache 2.0" \
       -d "default-jre-headless" \
       --deb-user root --deb-group root \
       --before-install $os/before-install.sh \

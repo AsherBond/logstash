@@ -422,7 +422,7 @@ show:
 	echo $(VERSION)
 
 .PHONY: prepare-tarball
-prepare-tarball tarball: WORKDIR=build/tarball/logstash-$(VERSION)
+prepare-tarball tarball zip: WORKDIR=build/tarball/logstash-$(VERSION)
 prepare-tarball: vendor/kibana $(ELASTICSEARCH) $(JRUBY) $(GEOIP) $(TYPESDB) vendor-gems
 prepare-tarball: vendor/ua-parser/regexes.yaml
 prepare-tarball:
@@ -430,12 +430,20 @@ prepare-tarball:
 	$(QUIET)$(MAKE) $(WORKDIR)
 	$(QUIET)rsync -a --relative bin lib spec locales patterns vendor/bundle/jruby vendor/geoip vendor/jar vendor/kibana vendor/ua-parser vendor/collectd LICENSE README.md --exclude 'vendor/bundle/jruby/1.9/cache' --exclude 'vendor/bundle/jruby/1.9/gems/*/doc' --exclude 'vendor/jar/elasticsearch-$(ELASTICSEARCH_VERSION).tar.gz'  $(WORKDIR)
 	$(QUIET)sed -i -e 's/^LOGSTASH_VERSION = .*/LOGSTASH_VERSION = "$(VERSION)"/' $(WORKDIR)/lib/logstash/version.rb
+	$(QUIET)sed -i -e 's/%JRUBY_VERSION%/$(JRUBY_VERSION)/' $(WORKDIR)/bin/logstash.bat
 
 .PHONY: tarball
 tarball: | build/logstash-$(VERSION).tar.gz
 build/logstash-$(VERSION).tar.gz: | prepare-tarball
-	$(QUIET)tar -C $$(dirname $(WORKDIR)) -zcf $@ $$(basename $(WORKDIR))
+	$(QUIET)tar -C $$(dirname $(WORKDIR)) -c $$(basename $(WORKDIR)) \
+		| gzip -9c > $@
 	@echo "=> tarball ready: $@"
+
+.PHONY: zip
+zip: | build/logstash-$(VERSION).zip
+build/logstash-$(VERSION).zip: | prepare-tarball
+	$(QUIET)(cd $$(dirname $(WORKDIR)); find $$(basename $(WORKDIR)) | zip $(PWD)/$@ -@ -9)$(QUIET_OUTPUT)
+	@echo "=> zip ready: $@"
 
 .PHONY: tarball-test
 tarball-test: #build/logstash-$(VERSION).tar.gz
