@@ -3,7 +3,7 @@
 #   wget or curl
 #
 JRUBY_VERSION=1.7.10
-ELASTICSEARCH_VERSION=0.90.11
+ELASTICSEARCH_VERSION=1.0.0
 
 WITH_JRUBY=java -jar $(shell pwd)/$(JRUBY) -S
 JRUBY=vendor/jar/jruby-complete-$(JRUBY_VERSION).jar
@@ -17,7 +17,9 @@ COLLECTD_VERSION=5.4.0
 TYPESDB_URL=https://collectd.org/files/collectd-$(COLLECTD_VERSION).tar.gz
 GEOIP=vendor/geoip/GeoLiteCity.dat
 GEOIP_URL=http://logstash.objects.dreamhost.com/maxmind/GeoLiteCity-2013-01-18.dat.gz
-KIBANA_URL=https://download.elasticsearch.org/kibana/kibana/kibana-latest.tar.gz
+GEOIP_ASN=vendor/geoip/GeoIPASNum.dat
+GEOIP_ASN_URL=http://logstash.objects.dreamhost.com/maxmind/GeoIPASNum-2014-02-12.dat.gz
+KIBANA_URL=https://download.elasticsearch.org/kibana/kibana/kibana-3.0.0milestone5.tar.gz
 PLUGIN_FILES=$(shell git ls-files | egrep '^lib/logstash/(inputs|outputs|filters|codecs)/[^/]+$$' | egrep -v '/(base|threadable).rb$$|/inputs/ganglia/')
 QUIET=@
 ifeq (@,$(QUIET))
@@ -158,13 +160,20 @@ vendor/geoip: | vendor
 	$(QUIET)mkdir $@
 
 .PHONY: vendor-geoip
-vendor-geoip: $(GEOIP)
+vendor-geoip: $(GEOIP) $(GEOIP_ASN)
 $(GEOIP): | vendor/geoip
 	$(QUIET)$(DOWNLOAD_COMMAND) $@.tmp.gz $(GEOIP_URL)
 	$(QUIET)gzip -dc $@.tmp.gz > $@.tmp
 	$(QUIET)rm "$@.tmp.gz"
 	$(QUIET)mv $@.tmp $@
 
+$(GEOIP_ASN): | vendor/geoip
+	$(QUIET)$(DOWNLOAD_COMMAND) $@.tmp.gz $(GEOIP_ASN_URL)
+	$(QUIET)gzip -dc $@.tmp.gz > $@.tmp
+	$(QUIET)rm "$@.tmp.gz"
+	$(QUIET)mv $@.tmp $@
+
+vendor/collectd: | vendor
 vendor/collectd: | vendor
 	$(QUIET)mkdir $@
 
