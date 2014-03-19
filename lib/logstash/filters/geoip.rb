@@ -24,7 +24,7 @@ require "tempfile"
 # <http://www.maxmind.com/en/geolite>.
 class LogStash::Filters::GeoIP < LogStash::Filters::Base
   config_name "geoip"
-  milestone 1
+  milestone 3
 
   # The path to the GeoIP database file which Logstash should use. Country, City, ASN, ISP
   # and organization databases are supported.
@@ -146,8 +146,8 @@ class LogStash::Filters::GeoIP < LogStash::Filters::Base
           value = case value.encoding
             # I have found strings coming from GeoIP that are ASCII-8BIT are actually
             # ISO-8859-1...
-            when Encoding::ASCII_8BIT; value.force_encoding("ISO-8859-1").encode("UTF-8")
-            when Encoding::ISO_8859_1, Encoding::US_ASCII;  value.encode("UTF-8")
+            when Encoding::ASCII_8BIT; value.force_encoding(Encoding::ISO_8859_1).encode(Encoding::UTF_8)
+            when Encoding::ISO_8859_1, Encoding::US_ASCII;  value.encode(Encoding::UTF_8)
             else; value
           end
         end
