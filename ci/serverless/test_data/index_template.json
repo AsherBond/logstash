@@ -1,0 +1,10 @@
+{
+  "index_patterns": ["logs-serverless*"],
+  "data_stream": { },
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.default_pipeline": "integration-logstash_test.events-default"
+    }
+  }
+}

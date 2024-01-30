@@ -1,0 +1,29 @@
+[[breaking-changes]]
+== Breaking changes
+
+We strive to maintain backward compatibility between minor versions (8.x to 8.y,
+for example) so that you can upgrade without changing any configuration files.
+Breaking changes are usually introduced only between major versions (such as 7.x
+to 8.y). On occasion, we are forced to break compatibility within a given major release
+to ensure correctness of operation.
+
+This section covers the changes that you need to be aware of when migrating to
+Logstash 8.0.0 and later.
+
+NOTE: Migrating directly between non-consecutive major versions (6.x to
+8.x) is not recommended. 
+We suggest that you upgrade to {prev-major-last} before you upgrade to 8.0, 
+
+See these topics for breaking changes in earlier releases:
+
+* <<breaking-8.0>>
+* <<breaking-7.0>>
+* <<breaking-pq>>
+* <<breaking-6.0>>
+
+include::breaking-changes-80.asciidoc[]
+include::breaking-changes-70.asciidoc[]
+include::breaking-changes-pre63.asciidoc[]
+include::breaking-changes-60.asciidoc[]
+
+Check out our <<releasenotes>> for additional release information.

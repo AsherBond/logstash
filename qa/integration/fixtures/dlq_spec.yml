@@ -1,0 +1,32 @@
+---
+services:
+  - logstash
+  - elasticsearch
+config:
+  input {
+    generator{
+      message => '{"ip":1}'
+      codec => "json"
+      count => 1000
+    }
+
+    dead_letter_queue {
+      path => "<%=options[:dlq_dir]%>"
+      commit_offsets => true
+    }
+  }
+
+  filter {
+    if ([ip]) {
+        mutate {
+            remove_field => ["ip"]
+            add_field => {
+              "mutated" => "true"
+            }
+        }
+    }
+  }
+  output {
+    elasticsearch { index => "test-index" }
+  }
+teardown_script:

@@ -1,0 +1,235 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *	http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.yaml:snakeyaml:${snakeYamlVersion}"
+    }
+}
+
+plugins {
+    id "jacoco"
+    id "org.sonarqube" version "4.3.0.3225"
+}
+
+apply plugin: 'jacoco'
+apply plugin: "org.sonarqube"
+
+repositories {
+    mavenCentral()
+}
+
+sonarqube {
+    properties {
+        property 'sonar.coverage.jacoco.xmlReportPaths', "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.9"
+}
+
+
+import org.yaml.snakeyaml.Yaml
+
+// fetch version from Logstash's main versions.yml file
+def versionMap = (Map) (new Yaml()).load(new File("$projectDir/../versions.yml").text)
+
+description = """Logstash Core Java"""
+
+String jacksonVersion = versionMap['jackson']
+String jacksonDatabindVersion = versionMap['jackson-databind']
+String jrubyVersion = versionMap['jruby']['version']
+
+String log4jVersion = '2.17.1'
+
+tasks.register("sourcesJar", Jar) {
+    dependsOn classes
+    from sourceSets.main.allSource
+    archiveClassifier = 'sources'
+    archiveExtension = 'jar'
+}
+
+tasks.register("javadocJar", Jar) {
+    dependsOn javadoc
+    from javadoc.destinationDir
+    archiveClassifier = 'javadoc'
+    archiveExtension = 'jar'
+}
+
+tasks.register("copyRuntimeLibs", Copy) {
+    into project.file('lib/jars/')
+    from configurations.runtimeClasspath {
+        exclude { it.file.name == 'jruby.jar' }
+    }
+}
+
+// copy jar file into the gem lib dir but without the version number in filename
+tasks.register("copyGemjar", Copy) {
+    dependsOn=[sourcesJar, copyRuntimeLibs]
+    from project.jar
+    into project.file('lib/jars/')
+    rename(/(.+)-${project.version}.jar/, '$1.jar')
+}
+
+tasks.register("cleanGemjar") {
+    delete fileTree(project.file('lib/jars/')) {
+        include '*.jar'
+    }
+}
+
+clean.dependsOn(cleanGemjar)
+jar.finalizedBy(copyGemjar)
+assemble.dependsOn(copyGemjar)
+
+configurations.create('sources')
+configurations.create('javadoc')
+configurations.archives {
+    extendsFrom configurations.sources
+    extendsFrom configurations.javadoc
+}
+
+tasks.register("javaTests", Test) {
+    dependsOn ':bootstrap'
+    exclude '/org/logstash/RSpecTests.class'
+    exclude '/org/logstash/config/ir/ConfigCompilerTest.class'
+    exclude '/org/logstash/config/ir/CompiledPipelineTest.class'
+    exclude '/org/logstash/config/ir/EventConditionTest.class'
+    exclude '/org/logstash/config/ir/PipelineConfigTest.class'
+    exclude '/org/logstash/config/ir/compiler/OutputDelegatorTest.class'
+    exclude '/org/logstash/config/ir/compiler/JavaCodecDelegatorTest.class'
+    exclude '/org/logstash/plugins/NamespacedMetricImplTest.class'
+    exclude '/org/logstash/plugins/CounterMetricImplTest.class'
+    exclude '/org/logstash/plugins/factory/PluginFactoryExtTest.class'
+    exclude '/org/logstash/execution/ObservedExecutionTest.class'
+
+    jacoco {
+        enabled = true
+        destinationFile = layout.buildDirectory.file('jacoco/test.exec').get().asFile
+        classDumpDir = layout.buildDirectory.dir('jacoco/classpathdumps').get().asFile
+    }
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+javaTests.finalizedBy(jacocoTestReport)
+
+tasks.register("rubyTests", Test) {
+    inputs.files fileTree("${projectDir}/lib")
+    inputs.files fileTree("${projectDir}/spec")
+    systemProperty 'logstash.root.dir', projectDir.parent
+    include '/org/logstash/RSpecTests.class'
+    include '/org/logstash/config/ir/ConfigCompilerTest.class'
+    include '/org/logstash/config/ir/CompiledPipelineTest.class'
+    include '/org/logstash/config/ir/EventConditionTest.class'
+    include '/org/logstash/config/ir/PipelineConfigTest.class'
+    include '/org/logstash/config/ir/compiler/OutputDelegatorTest.class'
+    include '/org/logstash/config/ir/compiler/JavaCodecDelegatorTest.class'
+    include '/org/logstash/plugins/NamespacedMetricImplTest.class'
+    include '/org/logstash/plugins/CounterMetricImplTest.class'
+    include '/org/logstash/plugins/factory/PluginFactoryExtTest.class'
+    include '/org/logstash/execution/ObservedExecutionTest.class'
+}
+
+test {
+    exclude '/**'
+}
+test.dependsOn javaTests, rubyTests
+
+artifacts {
+    sources(sourcesJar) {
+        // Weird Gradle quirk where type will be used for the extension, but only for sources
+        type 'jar'
+    }
+    javadoc(javadocJar) {
+        type 'javadoc'
+    }
+}
+
+configurations {
+    provided
+}
+
+project.sourceSets {
+    main.compileClasspath += project.configurations.provided
+    main.runtimeClasspath += project.configurations.provided
+    test.compileClasspath += project.configurations.provided
+    test.runtimeClasspath += project.configurations.provided
+}
+project.javadoc.classpath += project.configurations.provided
+
+idea {
+    module {
+        scopes.PROVIDED.plus += [project.configurations.provided]
+    }
+}
+
+dependencies {
+    api(files("../vendor/jruby/lib/jruby.jar") { // jruby-core.jar
+        builtBy ':downloadAndInstallJRuby'
+    }) { because "DEPENDENCY: org.jruby:jruby-core:${jrubyVersion}" } // meta-data for generateLicenseReport
+    implementation project(':jvm-options-parser')
+    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+    annotationProcessor "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    api "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
+    runtimeOnly "org.slf4j:slf4j-api:1.7.30"
+    // concerns libraries such as manticore's http-client 4.5 (using commons-logging)
+    runtimeOnly "org.apache.logging.log4j:log4j-jcl:${log4jVersion}"
+    // for the log4j-jcl bridge to work commons-logging needs to be on the same class-path
+    runtimeOnly 'commons-logging:commons-logging:1.2'
+    // also handle libraries relying on log4j 1.x to redirect their logs
+    runtimeOnly "org.apache.logging.log4j:log4j-1.2-api:${log4jVersion}"
+    implementation('org.reflections:reflections:0.10.2') {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    implementation 'commons-codec:commons-codec:1.15'
+    // Jackson version moved to versions.yml in the project root (the JrJackson version is there too)
+    implementation "com.fasterxml.jackson.core:jackson-core:${jacksonVersion}"
+    api "com.fasterxml.jackson.core:jackson-databind:${jacksonDatabindVersion}"
+    api "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+    implementation 'org.codehaus.janino:janino:3.1.0'
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${jacksonVersion}"
+    implementation group: 'org.yaml', name: 'snakeyaml', version: '2.2'
+    implementation group: 'com.google.guava', name: 'guava', version: '32.1.2-jre'
+    implementation('com.google.googlejavaformat:google-java-format:1.15.0') {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    implementation 'org.javassist:javassist:3.29.0-GA'
+    testImplementation "org.apache.logging.log4j:log4j-core:${log4jVersion}:tests"
+    testImplementation 'org.hamcrest:hamcrest:2.2'
+    testImplementation 'org.hamcrest:hamcrest-library:2.2'
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'net.javacrumbs.json-unit:json-unit:2.3.0'
+    testImplementation 'org.elasticsearch:securemock:1.2'
+    testImplementation 'org.assertj:assertj-core:3.11.1'
+    testImplementation 'org.awaitility:awaitility:4.2.0'
+
+    api group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.13'
+    api group: 'org.apache.httpcomponents', name: 'httpcore', version: '4.4.14'
+}

@@ -27,6 +27,7 @@ Do this:
 * parentheses on function definitions/calls
 * explicit is better than implicit
   * implicit returns are forbidden except in the case of a single expression 
+* Avoid use of 'and' and 'or' in ruby code 
 
 The point is consistency and documentation. If you see inconsistencies, let me
 know, and I'll fix them :)
@@ -94,3 +95,4 @@ inconsistencies between ruby versions.
 
     # This is good.
     str[0, 1]
+
