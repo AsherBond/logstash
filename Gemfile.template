@@ -20,12 +20,15 @@ gem "gems", "~> 1", :group => :build
 gem "octokit", "~> 4.25", :group => :build
 gem "rubyzip", "~> 1", :group => :build
 gem "stud", "~> 0.0.22", :group => :build
+# remove fileutils declaration when start using Ruby 3.2+, by default includes `fileutils-v1.7.0`
+# (https://git.ruby-lang.org/ruby.git/commit/?h=ruby_3_2&id=05caafb4731c796890027cafedaac59dc108a23a)
+# note that the reason to use 1.7.0 is due to https://github.com/logstash-plugins/logstash-integration-aws/issues/28
+gem "fileutils", "~> 1.7"
 
 gem "rubocop", :group => :development
 gem "belzebuth", :group => :development
 gem "benchmark-ips", :group => :development
 gem "ci_reporter_rspec", "~> 1", :group => :development
-gem "rexml", "3.2.6", :group => :development
 gem "flores", "~> 0.0.8", :group => :development
 gem "json-schema", "~> 2", :group => :development
 gem "logstash-devutils", "~> 2.6.0", :group => :development

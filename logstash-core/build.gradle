@@ -140,6 +140,7 @@ jacocoTestReport {
 javaTests.finalizedBy(jacocoTestReport)
 
 tasks.register("rubyTests", Test) {
+    dependsOn compileTestJava
     inputs.files fileTree("${projectDir}/lib")
     inputs.files fileTree("${projectDir}/spec")
     systemProperty 'logstash.root.dir', projectDir.parent
@@ -160,6 +161,17 @@ test {
     exclude '/**'
 }
 test.dependsOn javaTests, rubyTests
+
+tasks {
+    javadoc {
+        (options as StandardJavadocDocletOptions)
+                .tags(
+                        "apiNote:a:API Note:",
+                        "implSpec:a:Implementation Requirements:",
+                        "implNote:a:Implementation Note:"
+                )
+    }
+}
 
 artifacts {
     sources(sourcesJar) {
