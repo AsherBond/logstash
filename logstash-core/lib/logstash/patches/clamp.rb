@@ -79,8 +79,13 @@ module Clamp
           new_flag = opts[:new_flag]
           new_value = opts.fetch(:new_value, value)
           passthrough = opts.fetch(:passthrough, false)
+          obsoleted_version = opts[:obsoleted_version]
 
-          LogStash::DeprecationMessage.instance << "DEPRECATION WARNING: The flag #{option.switches} has been deprecated, please use \"--#{new_flag}=#{new_value}\" instead."
+          dmsg = "DEPRECATION WARNING: The flag #{option.switches} has been deprecated"
+          dmsg += obsoleted_version.nil? ? " and may be removed in a future release" : " and will be removed in version #{obsoleted_version}"
+          dmsg += new_flag.nil? ? ".": ", please use \"--#{new_flag}=#{new_value}\" instead."
+
+          LogStash::DeprecationMessage.instance << dmsg
 
           if passthrough
             LogStash::SETTINGS.set(option.attribute_name, value)
