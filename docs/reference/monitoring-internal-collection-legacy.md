@@ -26,7 +26,7 @@ Monitoring {{ls}} with legacy collection uses these components:
 * [Collectors](#logstash-monitoring-collectors-legacy)
 * [Output](#logstash-monitoring-output-legacy)
 
-These pieces live outside of the default Logstash pipeline in a dedicated monitoring pipeline. This configuration ensures that all data and processing has a minimal impact on ordinary Logstash processing. Existing Logstash features, such as the [`elasticsearch` output](/reference/plugins-outputs-elasticsearch.md), can be reused to benefit from its retry policies.
+These pieces live outside of the default Logstash pipeline in a dedicated monitoring pipeline. This configuration ensures that all data and processing has a minimal impact on ordinary Logstash processing. Existing Logstash features, such as the [`elasticsearch` output](logstash-docs-md://lsr/plugins-outputs-elasticsearch.md), can be reused to benefit from its retry policies.
 
 ::::{note}
 The `elasticsearch` output that is used for monitoring {{ls}} is configured exclusively through settings found in `logstash.yml`. It is not configured by using anything from the Logstash configurations that might also be using their own separate `elasticsearch` outputs.
@@ -169,7 +169,7 @@ To monitor Logstash nodes:
 5. Restart your Logstash nodes.
 6. To verify your monitoring configuration, point your web browser at your {{kib}} host, and select **Stack Monitoring** from the side navigation. If this is an initial setup, select **set up with self monitoring** and click **Turn on monitoring**. Metrics reported from your Logstash nodes should be visible in the Logstash section. When security is enabled, to view the monitoring dashboards you must log in to {{kib}} as a user who has the `kibana_user` and `monitoring_user` roles.
 
-    :::{image} ../images/monitoring-ui.png
+    :::{image} images/monitoring-ui.png
     :alt: Monitoring
     :::
 

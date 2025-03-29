@@ -9,7 +9,7 @@ mapped_pages:
 
 {{agent}} collects monitoring data from your {{ls}} instance, sends it directly to your monitoring cluster, and shows the data in {{ls}} dashboards.
 
-You can enroll {{agent}} in [{{fleet}}](docs-content://reference/ingestion-tools/fleet/install-fleet-managed-elastic-agent.md) for management from a central location, or you can run [{{agent}} standalone](docs-content://reference/ingestion-tools/fleet/install-standalone-elastic-agent.md).
+You can enroll {{agent}} in [{{fleet}}](docs-content://reference/fleet/install-fleet-managed-elastic-agent.md) for management from a central location, or you can run [{{agent}} standalone](docs-content://reference/fleet/install-standalone-elastic-agent.md).
 
 **Prerequisites**
 
@@ -57,14 +57,14 @@ Install and configure {{agent}} to collect {{ls}} monitoring data for dashboards
 * [View assets](#view-assets-ead)
 * [Monitor {{ls}} logs and metrics](#view-data-dashboard)
 
-Check out [Installing {{agent}}](docs-content://reference/ingestion-tools/fleet/install-elastic-agents.md) in the *Fleet and Elastic Agent Guide* for more info.
+Check out [Installing {{agent}}](docs-content://reference/fleet/install-elastic-agents.md) in the *Fleet and Elastic Agent Guide* for more info.
 
 
 ### Add the {{agent}} {{ls}} integration to monitor host logs and metrics [add-logstash-integration-ead]
 
 1. Go to the {{kib}} home page, and click **Add integrations**.
 
-    :::{image} ../images/kibana-home.png
+    :::{image} images/kibana-home.png
     :alt: {{kib}} home page
     :class: screenshot
     :::
@@ -125,7 +125,7 @@ After you have confirmed enrollment and data is coming in,  click **View assets*
 
 For traditional Stack Monitoring UI, the dashboards marked **[Logs {{ls}}]** are used to visualize the logs produced by your {{ls}} instances, with those marked **[Metrics {{ls}}]** for the technical preview metrics dashboards. These are populated with data only if you selected the **Metrics (Technical Preview)** checkbox.
 
-:::{image} ../images/integration-assets-dashboards.png
+:::{image} images/integration-assets-dashboards.png
 :alt: Integration assets
 :class: screenshot
 :::
@@ -137,7 +137,7 @@ A number of dashboards are included to view {{ls}} as a whole, and dashboards th
 
 From the list of assets, open the **[Metrics {{ls}}] {{ls}} overview** dashboard to view overall performance. Then follow the navigation panel to further drill down into {{ls}} performance.
 
-:::{image} ../images/integration-dashboard-overview.png
+:::{image} images/integration-dashboard-overview.png
 :alt: The {{ls}} Overview dashboard in {{kib}} with various metrics from your monitored {ls}
 :class: screenshot
 :::
