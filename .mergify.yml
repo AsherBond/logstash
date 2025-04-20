@@ -1,3 +1,17 @@
+commands_restrictions:
+  backport:
+    conditions:
+      - or:
+        - sender-permission>=write
+        - sender=github-actions[bot]
+defaults:
+  actions:
+    backport:
+      title: "[{{ destination_branch }}] (backport #{{ number }}) {{ title }}"
+      assignees:
+        - "{{ author }}"
+      labels:
+        - "backport"
 pull_request_rules:
 #  - name: ask to resolve conflict
 #    conditions:
@@ -25,7 +39,6 @@ pull_request_rules:
           To fixup this pull request, you need to add the backport labels for the needed
           branches, such as:
           * `backport-8./d` is the label to automatically backport to the `8./d` branch. `/d` is the digit.
-          * `backport-8.x` is the label to automatically backport to the `8.x` branch.
           * If no backport is necessary, please add the `backport-skip` label
 
   - name: remove backport-skip label
@@ -35,14 +48,6 @@ pull_request_rules:
       label:
         remove:
           - backport-skip
-
-  - name: remove backport-8.x label if backport-skip is present
-    conditions:
-      - label~=^backport-skip
-    actions:
-      label:
-        remove:
-          - backport-8.x
 
   - name: notify the backport has not been merged yet
     conditions:
@@ -55,21 +60,6 @@ pull_request_rules:
       comment:
         message: |
           This pull request has not been merged yet. Could you please review and merge it @{{ assignee | join(', @') }}? 🙏
-
-  - name: backport patches to 8.x branch
-    conditions:
-      - merged
-      - base=main
-      - label=backport-8.x
-    actions:
-      backport:
-        assignees:
-          - "{{ author }}"
-        branches:
-          - "8.x"
-        labels:
-          - "backport"
-        title: "[{{ destination_branch }}] {{ title }} (backport #{{ number }})"
 
   - name: backport patches to 8.16 branch
     conditions:
@@ -116,6 +106,16 @@ pull_request_rules:
           - "backport"
         title: "[{{ destination_branch }}] {{ title }} (backport #{{ number }})"
 
+  - name: backport patches to 8.19 branch
+    conditions:
+      - merged
+      - base=main
+      - label=backport-8.19
+    actions:
+      backport:
+        branches:
+          - "8.19"
+
   - name: backport patches to 9.0 branch
     conditions:
       - merged
@@ -127,62 +127,6 @@ pull_request_rules:
           - "{{ author }}"
         branches:
           - "9.0"
-        labels:
-          - "backport"
-        title: "[{{ destination_branch }}] {{ title }} (backport #{{ number }})"
-
-  - name: backport patches to all active minor branches for the 8 major.
-    conditions:
-      - merged
-      - label=backport-active-8
-    actions:
-      backport:
-        assignees:
-          - "{{ author }}"
-        # NOTE: this list needs to be changed when a new minor branch is created
-        #       or an existing minor branch reached EOL.
-        branches:
-          - "8.x"
-          - "8.18"
-          - "8.17"
-          - "8.16"
-        labels:
-          - "backport"
-        title: "[{{ destination_branch }}] {{ title }} (backport #{{ number }})"
-
-  - name: backport patches to all active minor branches for the 9 major.
-    conditions:
-      - merged
-      - label=backport-active-9
-    actions:
-      backport:
-        assignees:
-          - "{{ author }}"
-        # NOTE: this list needs to be changed when a new minor branch is created
-        #       or an existing minor branch reached EOL.
-        branches:
-          - "9.0"
-        labels:
-          - "backport"
-        title: "[{{ destination_branch }}] {{ title }} (backport #{{ number }})"
-
-  - name: backport patches to all active branches
-    conditions:
-      - merged
-      - label=backport-active-all
-    actions:
-      backport:
-        assignees:
-          - "{{ author }}"
-        # NOTE: this list needs to be changed when a new minor branch is created
-        #       or an existing release branch reached EOL.
-        branches:
-          - "9.0"
-          - "8.18"
-          - "8.17"
-          - "8.16"
-          - "8.x"
-          - "7.17"
         labels:
           - "backport"
         title: "[{{ destination_branch }}] {{ title }} (backport #{{ number }})"
