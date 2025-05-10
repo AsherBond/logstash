@@ -37,17 +37,16 @@ report = []
 `git checkout #{release_branch}`
 
 current_release = YAML.load(IO.read("versions.yml"))["logstash"]
-current_release_no_dot = current_release.tr(".", "")
 
 release_notes = IO.read(RELEASE_NOTES_PATH).split("\n")
 
-coming_tag_index = release_notes.find_index {|line| line.match(/^## #{current_release} \[logstash-#{current_release_no_dot}-release-notes\]$/) }
+coming_tag_index = release_notes.find_index {|line| line.match(/^## #{current_release} \[logstash-#{current_release}-release-notes\]$/) }
 coming_tag_index += 1 if coming_tag_index
 release_notes_entry_index = coming_tag_index || release_notes.find_index {|line| line.match(/\[logstash-\d+-release-notes\]$/) }
 
 unless coming_tag_index
-  report << "## #{current_release} [logstash-#{current_release_no_dot}-release-notes]\n\n"
-  report << "### Features and enhancements [logstash-#{current_release_no_dot}-features-enhancements]\n"
+  report << "## #{current_release} [logstash-#{current_release}-release-notes]\n\n"
+  report << "### Features and enhancements [logstash-#{current_release}-features-enhancements]\n"
 end
 
 plugin_changes = {}
@@ -87,7 +86,7 @@ report << "Changed plugin versions:"
 plugin_changes.each {|p, v| report << "#{p}: #{v.first} -> #{v.last}" }
 report << "---------- GENERATED CONTENT ENDS HERE ------------\n"
 
-report << "### Plugins [logstash-plugin-#{current_release_no_dot}-changes]\n"
+report << "### Plugins [logstash-plugin-#{current_release}-changes]\n"
 
 plugin_changes.each do |plugin, versions|
   _, type, name = plugin.split("-")
@@ -101,7 +100,7 @@ plugin_changes.each do |plugin, versions|
     next if line.match(/^##/)
     line.gsub!(/^\+/, "")
     line.gsub!(/ #(?<number>\d+)\s*$/, " https://github.com/logstash-plugins/#{plugin}/issues/\\k<number>[#\\k<number>]")
-    line.gsub!(/\[#(?<number>\d+)\]\((?<url>[^)]*)\)/, "\\k<url>[#\\k<number>]")
+    line.gsub!(/\[#(?<number>\d+)\]\((?<url>[^)]*)\)/, "[#\\k<number>](\\k<url>)")
     line.gsub!(/^\s+-/, "*")
     report << line
   end
@@ -113,6 +112,11 @@ end
 release_notes.insert(release_notes_entry_index, report.join("\n").gsub(/\n{3,}/, "\n\n"))
 
 IO.write(RELEASE_NOTES_PATH, release_notes.join("\n"))
+
+if token.nil?
+  puts "No token provided, skipping commit and push"
+  exit
+end
 
 puts "Creating commit.."
 branch_name = "update_release_notes_#{Time.now.to_i}"
