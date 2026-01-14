@@ -39,7 +39,7 @@ def call_url_with_retry(url: str, max_retries: int = 5, delay: int = 1) -> reque
 def fetch_release_branches() -> list:
     """
     Fetch release branches from artifacts-api.
-    Returns list of branch names (e.g., ["7.17", "8.19", "9.1", "9.2", "9.3", "main"]).
+    Returns list of branch names (e.g., ["8.19", "9.1", "9.2", "9.3", "main"]).
     """
     global _release_branches_cache
     if _release_branches_cache is not None:
@@ -165,7 +165,7 @@ echo "--- Running Snyk monitor for {plugin_name} on branch {branch}"
 # LS core resolves the gems so Gemfile needs to be excluded
 # .buildkite, .ci path may contain python/other projects not necessary to scan
 # eventually using --all-projects is good because snyk may detect CVEs through other package managers like maven, gradle, (ruby excluded) etc.. 
-./snyk monitor --all-projects --exclude=Gemfile,.buildkite,.ci,vendor.json --org=logstash --target-reference={branch}
+./snyk monitor --all-projects --exclude=build,Gemfile,.buildkite,.ci,vendor.json --org=logstash --target-reference={branch} --configuration-matching="^runtime"
 
 # Cleanup
 rm -rf {work_dir}
