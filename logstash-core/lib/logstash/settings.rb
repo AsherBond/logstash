@@ -448,39 +448,9 @@ module LogStash
     java_import org.logstash.settings.PasswordSetting
     java_import org.logstash.settings.ValidatedPasswordSetting
 
-    # The CoercibleString allows user to enter any value which coerces to a String.
-    # For example for true/false booleans; if the possible_strings are ["foo", "true", "false"]
-    # then these options in the config file or command line will be all valid: "foo", true, false, "true", "false"
-    #
-    class CoercibleString < Coercible
-      def initialize(name, default = nil, strict = true, possible_strings = [], &validator_proc)
-        @possible_strings = possible_strings
-        super(name, Object, default, strict, &validator_proc)
-      end
+    java_import org.logstash.settings.CoercibleStringSetting
 
-      def coerce(value)
-        value.to_s
-      end
-
-      def validate(value)
-        super(value)
-        unless @possible_strings.empty? || @possible_strings.include?(value)
-          raise ArgumentError.new("Invalid value \"#{value}\". Options are: #{@possible_strings.inspect}")
-        end
-      end
-    end
-
-    class ExistingFilePath < Setting
-      def initialize(name, default = nil, strict = true)
-        super(name, ::String, default, strict) do |file_path|
-          if !::File.exist?(file_path)
-            raise ::ArgumentError.new("File \"#{file_path}\" must exist but was not found.")
-          else
-            true
-          end
-        end
-      end
-    end
+    java_import org.logstash.settings.ExistingFilePathSetting
 
     class WritableDirectory < Setting
       def initialize(name, default = nil, strict = false)
