@@ -272,6 +272,16 @@ tasks.findByPath(':logstash-core:processTestResources').dependsOn(copyPluginTest
 
 // Tasks
 
+tasks.register("printStackVersion") {
+    description = "Print the stack version from logstash-plugins CI"
+    doLast {
+        def releaseTrack = gradle.ext.versions['logstash-release-track']
+        def url = new URL("https://raw.githubusercontent.com/logstash-plugins/.ci/1.x/logstash-versions.yml")
+        def remoteVersions = new org.yaml.snakeyaml.Yaml().load(url.text)
+        println remoteVersions['snapshots'][releaseTrack]
+    }
+}
+
 clean {
   delete "${projectDir}/Gemfile"
   delete "${projectDir}/Gemfile.lock"
@@ -376,7 +386,7 @@ tasks.register("artifactAll", Exec) {
     workingDir projectDir
     environment 'GEM_HOME', "${projectDir}/vendor/bundle/jruby/3.1.0"
     environment 'GEM_PATH', "${projectDir}/vendor/bundle/jruby/3.1.0"
-    commandLine "${projectDir}/vendor/bundle/jruby/3.1.0/bin/rake", "artifact:all"
+    commandLine "${projectDir}/vendor/jruby/bin/jruby", "-S", "rake", "artifact:all"
 }
 
 tasks.register("artifactDeb", Exec) {
@@ -387,7 +397,7 @@ tasks.register("artifactDeb", Exec) {
     environment 'ARCH', System.getenv("ARCH") ?: "x86_64"
     environment 'GEM_HOME', "${projectDir}/vendor/bundle/jruby/3.1.0"
     environment 'GEM_PATH', "${projectDir}/vendor/bundle/jruby/3.1.0"
-    commandLine "${projectDir}/vendor/bundle/jruby/3.1.0/bin/rake", "artifact:deb"
+    commandLine "${projectDir}/vendor/jruby/bin/jruby", "-S", "rake", "artifact:deb"
 }
 
 tasks.register("artifactRpm", Exec) {
@@ -398,7 +408,7 @@ tasks.register("artifactRpm", Exec) {
     environment 'ARCH', System.getenv("ARCH") ?: "x86_64"
     environment 'GEM_HOME', "${projectDir}/vendor/bundle/jruby/3.1.0"
     environment 'GEM_PATH', "${projectDir}/vendor/bundle/jruby/3.1.0"
-    commandLine "${projectDir}/vendor/bundle/jruby/3.1.0/bin/rake", "artifact:rpm"
+    commandLine "${projectDir}/vendor/jruby/bin/jruby", "-S", "rake", "artifact:rpm"
 }
 
 tasks.register("compileGrammar") {
@@ -1127,6 +1137,37 @@ clean {
     dependsOn deleteLocalJdk
     String jdkVersionFilename = tasks.findByName("extractBundledJdkVersion").outputFilename
     delete "${projectDir}/${jdkVersionFilename}"
+    delete fileTree(projectDir) {
+        include 'output*.csv'
+        include 'output*.json'
+    }
+    delete fileTree("${projectDir}/.buildkite/scripts/snyk/artifact-scan") {
+        include 'output*.csv'
+        include 'output*.json'
+    }
+}
+
+tasks.register("extractArtifactVersions") {
+    description = "Extract versions from a Logstash artifact (generates SBOM for Snyk scanning)"
+    dependsOn bootstrap
+
+    doLast {
+        def artifactDir = project.findProperty('artifactDir')
+        def outputFile = project.findProperty('outputFile') ?: 'output.csv'
+
+        if (!artifactDir) {
+            throw new GradleException("artifactDir property required. Usage: ./gradlew extractArtifactVersions -PartifactDir=/path/to/logstash -PoutputFile=output.csv")
+        }
+
+        rake(projectDir, buildDir, 'extract:artifact_versions', artifactDir, outputFile)
+    }
+}
+
+tasks.register("cleanExtraction") {
+    description = "Clean artifact extraction output files"
+    doLast {
+        rake(projectDir, buildDir, 'extract:clean')
+    }
 }
 
 if (System.getenv('OSS') != 'true') {
