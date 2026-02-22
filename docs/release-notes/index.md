@@ -23,6 +23,14 @@ To check for security updates, go to [Security announcements for the Elastic sta
 
 ## 9.3.0 [logstash-9.3.0-release-notes]
 
+::::{important}
+
+Do not upgrade to Logstash 9.3.0 if you are running on `aarch64` with the bundled JDK and are not using Docker.
+For more details please see the associated [known issue](/release-notes/known-issues.md#logstash-ki-9.3.0).
+
+::::
+
+
 ### Features and enhancements [logstash-9.3.0-features-enhancements]
 
 #### Wait for status feature added to Logstash API [logstash-9.3.0-wait-status]
@@ -90,6 +98,15 @@ Related:
 * Add `drop_error_types` config option to avoid retrying on certain error types [#1228](https://github.com/logstash-plugins/logstash-output-elasticsearch/pull/1228)
 
 ## 9.2.5 [logstash-9.2.5-release-notes]
+
+
+::::{important}
+
+Do not upgrade to Logstash 9.2.5 if you need to run Logstash on `aarch64` architectures using the bundled JDK, and are
+not running on Docker.
+For more details please see the associated [known issue](/release-notes/known-issues.md#logstash-ki-9.2.5).
+
+::::
 
 ### Features and enhancements [logstash-9.2.5-features-enhancements]
 
