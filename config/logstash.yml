@@ -49,6 +49,16 @@
 #
 # pipeline.batch.delay: 50
 #
+# Controls when output batches are split into smaller chunks. When the event count of a batch
+# increases by this multiplication factor by the end of the pipeline's filter section, it is
+# chunked based on the value of `pipeline.batch.size`. For example: a batch size of 50 that grows
+# to over 50,000 events (1000x50=50,000) will be sent to outputs 50 events at a time instead of a
+# single enormous batch. Useful when batch size grows unpredictably due to filter plugins such
+# as split or clone.
+# Default is 1000 (effectively disabled). Set to a lower value to enable chunking.
+#
+# pipeline.batch.output_chunking.growth_threshold_factor: 1000
+#
 # Set the pipeline's batch metrics reporting mode. It can be "disabled" to disable it.
 # "minimal" to collect only 1% of the batches metrics, "full" to collect all batches.
 # Default is "minimal".

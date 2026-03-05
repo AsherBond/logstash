@@ -55,6 +55,7 @@ module LogStash
       "path.dead_letter_queue",
       "path.queue",
       "pipeline.batch.delay",
+      "pipeline.batch.output_chunking.growth_threshold_factor",
       "pipeline.batch.metrics.sampling_mode",
       "pipeline.batch.size",
       "pipeline.id",
@@ -455,25 +456,7 @@ module LogStash
 
     java_import org.logstash.settings.BytesSetting
 
-    class TimeValue < Coercible
-      include LogStash::Util::Loggable
-
-      def initialize(name, default, strict = true, &validator_proc)
-        super(name, Util::TimeValue, default, strict, &validator_proc)
-      end
-
-      def coerce(value)
-        if value.is_a?(::Integer)
-          deprecation_logger.deprecated("Integer value for `#{name}` does not have a time unit and will be interpreted in nanoseconds. " +
-                                        "Time units will be required in a future release of Logstash. " +
-                                        "Acceptable unit suffixes are: `d`, `h`, `m`, `s`, `ms`, `micros`, and `nanos`.")
-
-          return Util::TimeValue.new(value, :nanosecond)
-        end
-
-        Util::TimeValue.from_value(value)
-      end
-    end
+    java_import org.logstash.settings.TimeValueSetting
 
     class ArrayCoercible < Coercible
       def initialize(name, klass, default, strict = true, &validator_proc)
@@ -497,26 +480,6 @@ module LogStash
 
         if @validator_proc && !@validator_proc.call(input)
           raise ArgumentError.new("Failed to validate setting \"#{@wrapped_setting.name}\" with value: #{input}")
-        end
-      end
-    end
-
-    class SplittableStringArray < ArrayCoercible
-      DEFAULT_TOKEN = ","
-
-      def initialize(name, klass, default, strict = true, tokenizer = DEFAULT_TOKEN, &validator_proc)
-        @element_class = klass
-        @token = tokenizer
-        super(name, klass, default, strict, &validator_proc)
-      end
-
-      def coerce(value)
-        if value.is_a?(Array)
-          value
-        elsif value.nil?
-          []
-        else
-          value.split(@token).map(&:strip)
         end
       end
     end
