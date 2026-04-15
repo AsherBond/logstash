@@ -20,6 +20,7 @@
 package org.logstash.instrument.metrics;
 
 import org.HdrHistogram.Histogram;
+import org.HdrHistogram.Recorder;
 import org.junit.Before;
 import org.junit.Test;
 import org.logstash.instrument.metrics.histogram.LifetimeHistogramMetric;
@@ -70,13 +71,16 @@ public class BatchStructureMetricTest {
         // Retrieve histogram values, getValue takes another capture and computes the diff with the initial empty capture
         Map<String, BatchStructureMetric.HistogramMetricData> histogramMap = sut.getValue();
 
-        assertThat("contains just the last 1 minute histogram", histogramMap,
-                allOf(aMapWithSize(1), hasKey("last_1_minute")));
+        assertThat("contains just the last 1 minute and lifetime histogram", histogramMap,
+                allOf(aMapWithSize(2), hasKey("last_1_minute"), hasKey("lifetime")));
 
         // Check against the reference histogram
         BatchStructureMetric.HistogramMetricData last1MinuteData = histogramMap.get("last_1_minute");
         assertEquals(referenceHistogram.getValueAtPercentile(50), last1MinuteData.get50Percentile(), 0.1);
         assertEquals(referenceHistogram.getValueAtPercentile(90), last1MinuteData.get90Percentile(), 0.1);
+        BatchStructureMetric.HistogramMetricData lifetimeData = histogramMap.get("lifetime");
+        assertEquals(referenceHistogram.getValueAtPercentile(50), lifetimeData.get50Percentile(), 0.1);
+        assertEquals(referenceHistogram.getValueAtPercentile(90), lifetimeData.get90Percentile(), 0.1);
     }
 
     @Test
@@ -109,8 +113,8 @@ public class BatchStructureMetricTest {
         // Retrieve histogram values and verify values for the time windows
         Map<String, BatchStructureMetric.HistogramMetricData> histogramMap = sut.getValue();
 
-        assertThat("contains just last 1 minute and 5 minutes histograms", histogramMap,
-                allOf(aMapWithSize(2), hasKey("last_1_minute"), hasKey("last_5_minutes")));
+        assertThat("contains last 1 minute, 5 minutes, and lifetime histograms", histogramMap,
+                allOf(aMapWithSize(3), hasKey("last_1_minute"), hasKey("last_5_minutes"), hasKey("lifetime")));
 
         // Since values are uniformly distributed, we can check expected percentiles
         BatchStructureMetric.HistogramMetricData last1MinuteData = histogramMap.get("last_1_minute");
@@ -119,6 +123,9 @@ public class BatchStructureMetricTest {
         BatchStructureMetric.HistogramMetricData last5MinutesData = histogramMap.get("last_5_minutes");
         assertEquals(100, last5MinutesData.get50Percentile(), 10);
         assertEquals(1000, last5MinutesData.get90Percentile(), 10);
+        BatchStructureMetric.HistogramMetricData lifetimeData = histogramMap.get("lifetime");
+        assertEquals(100, lifetimeData.get50Percentile(), 10);
+        assertEquals(1000, lifetimeData.get90Percentile(), 10);
     }
 
     @Test
@@ -149,8 +156,8 @@ public class BatchStructureMetricTest {
         // Retrieve histogram values and verify values for the time windows
         Map<String, BatchStructureMetric.HistogramMetricData> histogramMap = sut.getValue();
 
-        assertThat("contains just last 1 minute and 5 minutes histograms", histogramMap,
-                allOf(aMapWithSize(2), hasKey("last_1_minute"), hasKey("last_5_minutes")));
+        assertThat("contains just last 1 minute, 5 minutes and lifetime histograms", histogramMap,
+                allOf(aMapWithSize(3), hasKey("last_1_minute"), hasKey("last_5_minutes"), hasKey("lifetime")));
 
         // Since values are uniformly distributed, we can check expected percentiles
         BatchStructureMetric.HistogramMetricData last1MinuteData = histogramMap.get("last_1_minute");
@@ -159,5 +166,31 @@ public class BatchStructureMetricTest {
         BatchStructureMetric.HistogramMetricData last5MinutesData = histogramMap.get("last_5_minutes");
         assertEquals(100, last5MinutesData.get50Percentile(), 10);
         assertEquals(200, last5MinutesData.get90Percentile(), 10);
+        BatchStructureMetric.HistogramMetricData lifetimeData = histogramMap.get("lifetime");
+        assertEquals(100, lifetimeData.get50Percentile(), 10);
+        assertEquals(200, lifetimeData.get90Percentile(), 10);
+    }
+
+    @Test
+    public void givenInstantiatedStructureMetricInstanceThenVerifyOccupationEstimation() {
+        // HistogramMetric uses HdrHistogram with 3 digits precision, so create a sample to have
+        // the rough histogram occupation.
+        Histogram sample = new Recorder(3).getIntervalHistogram();
+
+        int sampleOccupation = sample.getEstimatedFootprintInBytes();
+
+        //BatchStructureMetric has 4 policies
+        int totalDatapoints = BuiltInFlowMetricRetentionPolicies.LAST_1_MINUTE.datapointsCount() +
+        BuiltInFlowMetricRetentionPolicies.LAST_5_MINUTES.datapointsCount() +
+        BuiltInFlowMetricRetentionPolicies.LAST_15_MINUTES.datapointsCount() +
+        BuiltInFlowMetricRetentionPolicies.LIFETIME.datapointsCount();
+
+        // 60 seconds retention divided by the resolution of 3 seconds, plus the staging accumulator.
+        // The same reasoning applies to 5 and 15 minutes.
+        assertEquals(60/3 + 1 + 5 * 60/15 + 1 + 15 * 60/30 + 1  + 2, totalDatapoints);
+
+        int expectedOccupation = sampleOccupation * totalDatapoints;
+
+        assertEquals(expectedOccupation, sut.estimateBatchMetricsFootprintInBytes());
     }
 }

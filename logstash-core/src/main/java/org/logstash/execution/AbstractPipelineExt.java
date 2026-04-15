@@ -355,6 +355,43 @@ public class AbstractPipelineExt extends RubyBasicObject {
         return context.nil;
     }
 
+    /**
+     * Needs to be invoked after initialize_flow_metrics
+     *
+     * @return the occupation of internal structures in bytes or nil if batch metrics are disabled
+     * */
+    @JRubyMethod(name = "estimate_batch_metrics_occupation")
+    public final IRubyObject estimateBatchMetricsInternalStructures(final ThreadContext context) {
+        if (!isBatchMetricsEnabled(context)) {
+            return context.nil;
+        }
+
+        return context.runtime.newFixnum(getEstimateBatchMetricsInternalStructures());
+    }
+
+    private int getEstimateBatchMetricsInternalStructures() {
+        if (batchStructureMetric == null) {
+            throw new IllegalStateException("Batch metrics estimation invoked before the internal data structures were instantiated");
+        }
+        int eventCountFootprint = batchEventCountStructureMetric.estimateBatchMetricsFootprintInBytes();
+        int byteSizeFootprint = batchStructureMetric.estimateBatchMetricsFootprintInBytes();
+        int histogramCollectorFootprint = filterQueueClient.estimateBatchMetricsFootprintInBytes();
+        return eventCountFootprint + byteSizeFootprint + histogramCollectorFootprint;
+    }
+
+    @JRubyMethod(name = "log_batch_metrics_memory_consumption")
+    public final IRubyObject logEstimatedBatchMetricMemoryConsumption(final ThreadContext context) {
+        if (metric.collector(context).isNil() || !getSetting(context, "metric.collect").isTrue()) {
+            LOGGER.debug("Metrics collection is disabled, skipping batch metrics logging");
+            return context.nil;
+        }
+
+        if (isBatchMetricsEnabled(context)) {
+            LOGGER.info("Pipeline `{}` batch metrics estimated memory consumption: {} bytes", pipelineId, getEstimateBatchMetricsInternalStructures());
+        }
+        return context.nil;
+    }
+
     @JRubyMethod(name = "process_events_namespace_metric")
     public final IRubyObject processEventsNamespaceMetric(final ThreadContext context) {
         return metric.namespace(context, EVENTS_METRIC_NAMESPACE);
@@ -537,6 +574,26 @@ public class AbstractPipelineExt extends RubyBasicObject {
                 plugin -> !plugin.callMethod(context, "reloadable?").isTrue()
         ).forEach(result::add);
         return result;
+    }
+
+    @JRubyMethod(name = "configured_queue_type")
+    public final IRubyObject configuredQueueType(final ThreadContext context) {
+        return getSetting(context, "queue.type");
+    }
+
+    @JRubyMethod(name = "configured_as_recoverable?")
+    public final IRubyObject isConfiguredAsRecoverable(final ThreadContext context) {
+        final String recoverableSettingValue = getSetting(context, "pipeline.recoverable").asJavaString();
+        final boolean result = switch (recoverableSettingValue) {
+            case "true" -> true;
+            case "false" -> false;
+            case "auto" -> getSetting(context, "queue.type").asJavaString().equals(QueueFactoryExt.PERSISTED_TYPE);
+            default -> {
+                LOGGER.warn("Unsupported `pipeline.recoverable` value {}; defaulting to `false`", recoverableSettingValue);
+                yield false;
+            }
+        };
+        return result ? context.tru : context.fals;
     }
 
     @JRubyMethod(name = "collect_stats")

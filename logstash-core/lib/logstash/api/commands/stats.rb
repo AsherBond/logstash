@@ -209,10 +209,12 @@ module LogStash
               # stats[:batch][:byte_size][:batch_structure_metric] is an instance of org.logstash.instrument.metrics.BatchStructureMetric
               # so need to call "value" to grab the map of sub-metrics which contains the histogram percentiles
               # as org.logstash.instrument.metrics.BatchStructureMetric$HistogramMetricData
-              [:last_1_minute, :last_5_minutes, :last_15_minutes].each do |window|
+              [:last_1_minute, :last_5_minutes, :last_15_minutes, :lifetime].each do |window|
                 byte_size_histogram_value = byte_size_histogram.value
                 if byte_size_histogram_value[window.to_s]
                   reshape_histogram_percentiles_for_window(:byte_size, byte_size_histogram_value, window, result)
+                  result[:byte_size][:max] ||= {}
+                  result[:byte_size][:max][window] = byte_size_histogram_value[window.to_s].max_value.round
                 end
               end
             end

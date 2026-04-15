@@ -33,7 +33,6 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.logstash.Event;
-import org.logstash.instrument.metrics.MetricKeys;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -138,6 +137,13 @@ public class OutputDelegatorTest extends PluginDelegatorTestCase {
     }
 
     @Test
+    public void javaOutputDelegatorReturnsNilForRubyPlugin() {
+        JavaOutputDelegatorExt delegator = JavaOutputDelegatorExt.create(
+                "test_plugin", "test_id", metric, events -> {}, () -> {}, () -> {});
+        assertThat(delegator.rubyPlugin(RUBY.getCurrentContext()).isNil()).isTrue();
+    }
+
+    @Test
     public void singleConcurrencyStrategyIsDefault() {
         OutputDelegatorExt outputDelegator = constructOutputDelegator();
         IRubyObject concurrency = outputDelegator.concurrency(RUBY.getCurrentContext());
@@ -166,6 +172,11 @@ public class OutputDelegatorTest extends PluginDelegatorTestCase {
 
             // test that metrics are properly set on the instance
             assertEquals(outputDelegator.namespacedMetric(), FakeOutClass.latestInstance.getMetricArgs());
+
+            // test that rubyPlugin returns the inner plugin instance
+            IRubyObject rubyPlugin = outputDelegator.rubyPlugin(RUBY.getCurrentContext());
+            assertThat(rubyPlugin).isInstanceOf(FakeOutClass.class);
+            assertThat(rubyPlugin.isNil()).isFalse();
         }
     }
 
