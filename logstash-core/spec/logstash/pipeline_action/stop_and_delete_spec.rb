@@ -42,6 +42,7 @@ describe LogStash::PipelineAction::StopAndDelete do
   before do
     clear_data_dir
     allow(agent).to receive(:health_observer).and_return(double("HealthObserver").as_null_object)
+    allow(agent).to receive(:untrack_ssl_resources)
     pipeline.start
   end
 

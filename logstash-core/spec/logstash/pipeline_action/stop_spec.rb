@@ -35,6 +35,7 @@ describe LogStash::PipelineAction::Stop do
   before do
     clear_data_dir
     pipeline.start
+    allow(agent).to receive(:untrack_ssl_resources)
   end
 
   after do

@@ -38,6 +38,8 @@ describe LogStash::PipelineAction::Reload do
   before do
     clear_data_dir
     pipeline.start
+    allow(agent).to receive(:track_ssl_resources)
+    allow(agent).to receive(:untrack_ssl_resources)
   end
 
   after do
@@ -64,6 +66,12 @@ describe LogStash::PipelineAction::Reload do
     it "run the new pipeline code" do
       subject.execute(agent, pipelines)
       expect(pipelines.get_pipeline(pipeline_id).pipeline_config.config_hash).to eq(new_pipeline_config.config_hash)
+    end
+
+    it "untracks old pipeline then tracks new pipeline resources through the agent" do
+      expect(agent).to receive(:untrack_ssl_resources).with(pipeline_id).ordered
+      expect(agent).to receive(:track_ssl_resources).ordered
+      subject.execute(agent, pipelines)
     end
   end
 
@@ -100,6 +108,13 @@ describe LogStash::PipelineAction::Reload do
 
     it "cannot successfully execute the action" do
       expect(subject.execute(agent, pipelines)).not_to be_a_successful_action
+    end
+
+    it "untracks old pipeline, tracks new pipeline, then does not untrack again on failed start" do
+      expect(agent).to receive(:untrack_ssl_resources).with(pipeline_id).ordered
+      expect(agent).to receive(:track_ssl_resources).ordered
+      expect(agent).not_to receive(:untrack_ssl_resources).with(pipeline_id).ordered
+      subject.execute(agent, pipelines)
     end
   end
 end

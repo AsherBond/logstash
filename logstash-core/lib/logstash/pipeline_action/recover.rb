@@ -67,10 +67,13 @@ module LogStash module PipelineAction
 
         # first cleanup the old pipeline
         old_pipeline.shutdown
+        agent.untrack_ssl_resources(pipeline_id)
 
         # Then create a new pipeline
         new_pipeline = LogStash::JavaPipeline.new(@pipeline_config, @metric, agent)
+        agent.track_ssl_resources(new_pipeline)
         success = new_pipeline.start # block until the pipeline is correctly started or crashed
+        # Keep the SSL file registered on failure so subsequent certificate recovery can be detected. Do not deregister it.
 
         # return success and new_pipeline to registry reload_pipeline
         [success, new_pipeline]
