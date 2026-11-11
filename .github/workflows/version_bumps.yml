@@ -38,12 +38,12 @@ jobs:
       BACKPORT_LABEL: "backport-${{ github.ref_name }}"
     steps:
       - name: Set up JDK 21
-        uses: actions/setup-java@v6.1.0
+        uses: actions/setup-java@v6.2.0
         with:
           distribution: 'temurin'
           java-version: '21'
       - name: Fetch logstash-core team member list
-        uses: tspascoal/get-user-teams-membership@b2546c5affc730fd8e3d8483ae9ad3621938c2f9 #v4.0.2
+        uses: tspascoal/get-user-teams-membership@239f45b779d25e70c2e669134c6ed90826f008a1 #v4.0.3
         with: 
           username: ${{ github.actor }}
           organization: elastic
@@ -61,8 +61,12 @@ jobs:
       - run: git config --global user.name "logstashmachine"
       - run: ./gradlew clean installDefaultGems
       - run: ./vendor/jruby/bin/jruby -S bundle update --all --${{ env.INPUTS_BUMP }} --strict
+        env:
+          BUNDLE_PATH: vendor/bundle
       - name: Bump selected deps at minor level
         if: ${{ inputs.bump == 'patch' }}
+        env:
+          BUNDLE_PATH: vendor/bundle
         run: |
           AWS_GEMS=$(./vendor/jruby/bin/jruby -S bundle list --name-only | grep '^aws-')
           GEMS=$(echo "${AWS_GEMS} ${INPUTS_EXTRA_GEMS_MINOR}" | xargs)
@@ -72,12 +76,18 @@ jobs:
           fi
       - name: Bump selected deps at major level
         if: ${{ inputs.bump != 'major' && inputs.extra_gems_major != '' }}
+        env:
+          BUNDLE_PATH: vendor/bundle
         run: |
           GEMS=$(echo "${INPUTS_EXTRA_GEMS_MAJOR}" | xargs)
           if [ -n "$GEMS" ]; then
             echo "Bumping at --major: ${GEMS}"
             ./vendor/jruby/bin/jruby -S bundle update $GEMS --major --strict --conservative
           fi
+      - name: Update NOTICE.txt for bumped dependencies
+        run: |
+          ./bin/dependencies-report --csv build/dependencies.csv.ruby
+          mv NOTICE.txt NOTICE.TXT
       - run: mv Gemfile.lock Gemfile.jruby-*.lock.release
       - run: echo "T=$(date +%s)" >> $GITHUB_ENV
       - run: echo "BRANCH=update_lock_${{ env.INPUTS_BRANCH }}_${T}" >> $GITHUB_ENV
@@ -86,7 +96,7 @@ jobs:
           git add .
           git status
           if [[ -z $(git status --porcelain) ]]; then echo "No changes. We're done."; exit 0; fi
-          git commit -m "Update ${{ env.INPUTS_BUMP }} plugin versions in gemfile lock" -a
+          git commit -m "Update ${{ env.INPUTS_BUMP }} plugin versions in gemfile lock and NOTICE.txt" -a
           git push origin $BRANCH
 
       - name: Update mergify (minor only)
